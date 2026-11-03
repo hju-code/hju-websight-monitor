@@ -45,3 +45,4 @@ next-env.d.ts
 
 # local file store (PG fallback)
 /data/
+.env*
