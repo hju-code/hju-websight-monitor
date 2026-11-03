@@ -46,6 +46,8 @@ export interface CollectResult {
   ok: boolean;
   hits: OrganicHit[];
   scanned: number;
+  /** Provider-reported search hit total (Naver webkr `total`, Daum `meta.total_count`). */
+  resultTotal?: number | null;
   status: CollectStatus;
   errorMessage?: string;
   meta: CollectMeta;

@@ -96,6 +96,13 @@ export async function addKeyword(phrase: string) {
 export async function listRanksFromStore(limit = 100): Promise<RankRecord[]> {
   const s = await readStore();
   return [...s.ranks]
+    .map((r) => ({
+      ...r,
+      resultTotal:
+        typeof r.resultTotal === "number" && Number.isFinite(r.resultTotal)
+          ? r.resultTotal
+          : null,
+    }))
     .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
     .slice(0, limit);
 }

@@ -87,12 +87,19 @@ export async function runCollectJob(opts?: {
       const hitsDiscarded = collect.hits.length;
       collect.hits.length = 0;
 
+      const resultTotal =
+        typeof collect.resultTotal === "number" &&
+        Number.isFinite(collect.resultTotal)
+          ? collect.resultTotal
+          : null;
+
       const row = {
         phrase,
         engine,
         collectStatus: collect.status,
         requestCount: collect.meta.requestCount,
         scanned: collect.scanned,
+        result_total: resultTotal,
         hitsDiscarded,
         ...derived,
       };
@@ -125,6 +132,7 @@ export async function runCollectJob(opts?: {
             schoolStatus,
             matchedUrl: derived.matched_url,
             matchedDomain: derived.matched_domain,
+            resultTotal,
             requestCount: collect.meta.requestCount,
             providerStatus: collect.status,
             errorCode: collect.errorMessage ?? null,
@@ -141,6 +149,7 @@ export async function runCollectJob(opts?: {
           schoolStatus,
           matchedUrl: derived.matched_url,
           matchedDomain: derived.matched_domain,
+          resultTotal,
           requestCount: collect.meta.requestCount,
           providerStatus: collect.status,
           source:

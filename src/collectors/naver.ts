@@ -145,6 +145,13 @@ export class NaverSearchCollector implements Collector {
       }
 
       const items = body.items ?? [];
+      const resultTotal =
+        typeof body.total === "number" && Number.isFinite(body.total)
+          ? body.total
+          : null;
+      if (resultTotal != null) {
+        notes.push(`webkr.total=${resultTotal}`);
+      }
       const hits: OrganicHit[] = items
         .map((item, i): OrganicHit | null => {
           if (!item.link) return null;
@@ -175,6 +182,7 @@ export class NaverSearchCollector implements Collector {
         ok: true,
         hits,
         scanned: hits.length,
+        resultTotal,
         status: hits.length > 0 ? "ok" : "partial",
         meta: {
           requestCount: 1,
