@@ -1,14 +1,29 @@
-import { statsSummary } from "../../db/store";
+import { getPublicStats } from "../../db/live-stats";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * Public statistics — no login.
- * Shows file-store / sample aggregates when PG unavailable.
+ * On Vercel without durable PG: auto live-fetch Naver when only samples exist.
  */
-export default async function PublicStatsPage() {
-  const summary = await statsSummary();
-  const hasSample = summary.sampleCount > 0;
+export default async function PublicStatsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = (await searchParams) ?? {};
+  const liveParam = sp.live;
+  const forceLive =
+    liveParam === "1" ||
+    liveParam === "true" ||
+    (Array.isArray(liveParam) && liveParam.includes("1"));
+
+  const summary = await getPublicStats({
+    forceLive,
+    keywords: ["혜전대학교"],
+  });
+  const isLive = summary.mode === "fresh_live" || summary.mode === "stored_live";
 
   return (
     <>
@@ -23,9 +38,15 @@ export default async function PublicStatsPage() {
           활성 플랫폼:{" "}
           <code>{summary.enabledPlatforms.join(", ") || "(없음)"}</code>
           {" · "}
+          모드 <code>{summary.mode}</code>
+          {" · "}
           스냅샷 {summary.totalSnapshots}건
-          {hasSample ? " (샘플/드라이런 포함 — UX 완성용)" : ""}
+          {isLive ? ` · live ${summary.liveCount}` : ""}
+          {summary.sampleCount > 0 && !isLive
+            ? " (샘플/드라이런 포함 — UX 완성용)"
+            : ""}
         </p>
+        {summary.note ? <p className="muted">{summary.note}</p> : null}
         <table>
           <thead>
             <tr>
@@ -71,6 +92,12 @@ export default async function PublicStatsPage() {
                         <span className="badge">sample</span>
                       </>
                     ) : null}
+                    {r.source === "live" ? (
+                      <>
+                        {" "}
+                        <span className="badge ok">live</span>
+                      </>
+                    ) : null}
                   </td>
                   <td className="muted mono">{r.matchedDomain ?? "—"}</td>
                 </tr>
@@ -84,9 +111,17 @@ export default async function PublicStatsPage() {
         <h2>안내</h2>
         <ul className="checklist">
           <li>원문(title/snippet)은 저장하지 않으며 파생 순위만 표시합니다.</li>
+          <li>
+            Vercel 파일 스토어는 <code>/tmp</code> (인스턴스 휘발) — 내구성은 PG/KV
+            권장. 샘플만 있으면 공개 통계가 Naver를 즉시 조회합니다.
+          </li>
           <li>Google 채널은 보류 상태입니다.</li>
           <li>
             지식iN 답변 검토는 공개되지 않습니다 → <a href="/review">검토 로그인</a>
+          </li>
+          <li>
+            강제 재조회: <a href="/stats?live=1">/stats?live=1</a> ·{" "}
+            <a href="/api/ranks?live=1&amp;q=혜전대학교">/api/ranks?live=1</a>
           </li>
         </ul>
       </section>

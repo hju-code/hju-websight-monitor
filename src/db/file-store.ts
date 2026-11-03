@@ -3,7 +3,13 @@
  * When WEBSIGHT_DATABASE_URL is set, repository.ts prefers PostgreSQL;
  * APIs still fall back here on connection failure for local/demo UX.
  *
- * Path: data/websight-store.json (gitignored). Auto-posts NEVER stored as enabled.
+ * Path:
+ *   - WEBSIGHT_STORE_PATH if set
+ *   - /tmp/websight-store.json on Vercel (cwd `/var/task` is read-only)
+ *   - data/websight-store.json locally (gitignored)
+ *
+ * Disk writes soft-fail so in-memory cache still works when FS is ephemeral/RO.
+ * Auto-posts NEVER stored as enabled.
  */
 import { promises as fs } from "fs";
 import path from "path";
@@ -17,9 +23,6 @@ import {
   FIXTURE_QUESTION,
 } from "../kin/fixtures";
 import type { KnowledgeEntry, KinDraft, KinQuestion } from "../kin/types";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const STORE_PATH = path.join(DATA_DIR, "websight-store.json");
 
 export interface RankRecord {
   id: number;
@@ -105,8 +108,50 @@ export interface FileStoreData {
   };
 }
 
+function resolveStorePaths(): { dataDir: string; storePath: string; ephemeral: boolean } {
+  const override = process.env.WEBSIGHT_STORE_PATH?.trim();
+  if (override) {
+    return {
+      dataDir: path.dirname(override),
+      storePath: override,
+      ephemeral: override.startsWith("/tmp"),
+    };
+  }
+  const onVercel =
+    process.env.VERCEL === "1" ||
+    process.env.VERCEL === "true" ||
+    process.env.WEBSIGHT_USE_TMP_STORE === "true";
+  if (onVercel) {
+    return {
+      dataDir: "/tmp",
+      storePath: "/tmp/websight-store.json",
+      ephemeral: true,
+    };
+  }
+  const dataDir = path.join(process.cwd(), "data");
+  return {
+    dataDir,
+    storePath: path.join(dataDir, "websight-store.json"),
+    ephemeral: false,
+  };
+}
+
+const PATHS = resolveStorePaths();
+const DATA_DIR = PATHS.dataDir;
+const STORE_PATH = PATHS.storePath;
+
 function nowIso() {
   return new Date().toISOString();
+}
+
+function seedEnabledPlatforms(): string[] {
+  const fromEnv = process.env.ENABLED_PLATFORMS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (fromEnv?.length) return fromEnv;
+  // Vercel sample: Naver-only until durable PG/KV is wired
+  if (PATHS.ephemeral) return ["naver_web"];
+  return defaultEnabledPlatforms().enabled;
 }
 
 function sampleRanks(): RankRecord[] {
@@ -192,7 +237,7 @@ function sampleRanks(): RankRecord[] {
 
 function defaultStore(): FileStoreData {
   const ts = nowIso();
-  const defaults = defaultEnabledPlatforms();
+  const enabled = seedEnabledPlatforms();
   return {
     version: 1,
     keywords: SEED_KEYWORDS.map((k, i) => ({
@@ -225,7 +270,7 @@ function defaultStore(): FileStoreData {
       snapshot_ttl_days: 21,
       google_enabled: false,
       kin_auto_post: false,
-      enabled_platforms: [...defaults.enabled],
+      enabled_platforms: enabled,
       updatedAt: ts,
     },
     sessions: [],
@@ -243,6 +288,7 @@ function defaultStore(): FileStoreData {
 
 let memoryCache: FileStoreData | null = null;
 let writeChain: Promise<void> = Promise.resolve();
+let lastPersistError: string | null = null;
 
 async function ensureLoaded(): Promise<FileStoreData> {
   if (memoryCache) return memoryCache;
@@ -259,12 +305,18 @@ async function ensureLoaded(): Promise<FileStoreData> {
 
 async function persist(data: FileStoreData): Promise<void> {
   memoryCache = data;
-  writeChain = writeChain.then(async () => {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    const tmp = `${STORE_PATH}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
-    await fs.rename(tmp, STORE_PATH);
-  });
+  writeChain = writeChain
+    .then(async () => {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      const tmp = `${STORE_PATH}.${process.pid}.tmp`;
+      await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+      await fs.rename(tmp, STORE_PATH);
+      lastPersistError = null;
+    })
+    .catch((err) => {
+      // Keep memory cache; Vercel /var/task is RO and /tmp is instance-local.
+      lastPersistError = err instanceof Error ? err.message : String(err);
+    });
   await writeChain;
 }
 
@@ -283,6 +335,14 @@ export async function updateStore(
 
 export function storePath(): string {
   return STORE_PATH;
+}
+
+export function storeIsEphemeral(): boolean {
+  return PATHS.ephemeral;
+}
+
+export function getLastPersistError(): string | null {
+  return lastPersistError;
 }
 
 export async function resetStoreForTests(): Promise<void> {

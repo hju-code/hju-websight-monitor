@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCollectJob } from "../../../jobs/collect-run";
+import {
+  getLastPersistError,
+  storeIsEphemeral,
+  storePath,
+} from "../../../db/file-store";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function unauthorized() {
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -25,12 +31,22 @@ export async function POST(req: NextRequest) {
   }
 
   const dry = req.nextUrl.searchParams.get("dry") === "1";
+  const q = req.nextUrl.searchParams.get("q")?.trim();
+  const keywords = q ? [q] : undefined;
   try {
     const out = await runCollectJob({
       persist: !dry,
       triggeredBy: "manual",
+      keywords,
     });
-    return NextResponse.json({ ok: true, dry, ...out });
+    return NextResponse.json({
+      ok: true,
+      dry,
+      storePath: storePath(),
+      storeEphemeral: storeIsEphemeral(),
+      persistError: getLastPersistError(),
+      ...out,
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
