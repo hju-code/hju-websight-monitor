@@ -1,0 +1,6 @@
+# Server34 cron examples (user that runs the app)
+# Daily collect 06:15 KST — adjust path
+15 6 * * * cd /opt/hju/hju-websight-monitor && /usr/bin/npx tsx src/jobs/collect-run.ts >> /var/log/hju-websight-collect.log 2>&1
+
+# Expire TTL snapshots daily 07:00
+0 7 * * * cd /opt/hju/hju-websight-monitor && /usr/bin/npx tsx src/jobs/expire-snapshots.ts >> /var/log/hju-websight-expire.log 2>&1

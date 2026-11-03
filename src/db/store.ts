@@ -1,0 +1,302 @@
+/**
+ * Unified data access — file store always available; PG used when configured
+ * for rank/keyword reads that already exist in repository.ts.
+ */
+import { randomBytes } from "crypto";
+import type { AssignmentScope, WebSightUser } from "../auth/types";
+import { defaultEnabledPlatforms } from "../config/platforms";
+import { generateDraftFromKnowledge } from "../kin/draft";
+import type {
+  DraftStatus,
+  KnowledgeCategory,
+  KnowledgeEntry,
+  KinDraft,
+  KinQuestion,
+} from "../kin/types";
+import {
+  readStore,
+  updateStore,
+  type AppSettings,
+  type RankRecord,
+} from "./file-store";
+
+function id(prefix: string) {
+  return `${prefix}-${randomBytes(6).toString("hex")}`;
+}
+
+export async function getSettings(): Promise<AppSettings> {
+  const s = await readStore();
+  return s.settings;
+}
+
+export async function savePlatforms(enabled: string[]): Promise<AppSettings> {
+  const catalogOk = new Set(
+    enabled.filter((e) => typeof e === "string" && e.length > 0),
+  );
+  const data = await updateStore((store) => {
+    store.settings.enabled_platforms = [...catalogOk];
+    store.settings.kin_auto_post = false;
+    store.settings.updatedAt = new Date().toISOString();
+  });
+  return data.settings;
+}
+
+export async function saveTosSettings(partial: {
+  tos_mode?: string;
+  snapshot_ttl_days?: number;
+  google_enabled?: boolean;
+}): Promise<AppSettings> {
+  const data = await updateStore((store) => {
+    if (partial.tos_mode) store.settings.tos_mode = partial.tos_mode;
+    if (typeof partial.snapshot_ttl_days === "number") {
+      store.settings.snapshot_ttl_days = partial.snapshot_ttl_days;
+    }
+    if (typeof partial.google_enabled === "boolean") {
+      store.settings.google_enabled = partial.google_enabled;
+    }
+    store.settings.kin_auto_post = false;
+    store.settings.updatedAt = new Date().toISOString();
+  });
+  return data.settings;
+}
+
+export async function getEnabledPlatforms(): Promise<string[]> {
+  const s = await getSettings();
+  if (s.enabled_platforms?.length) return s.enabled_platforms;
+  return defaultEnabledPlatforms().enabled;
+}
+
+export async function listKeywordsFromStore() {
+  const s = await readStore();
+  return s.keywords;
+}
+
+export async function addKeyword(phrase: string) {
+  const trimmed = phrase.trim();
+  if (!trimmed) throw new Error("phrase required");
+  const data = await updateStore((store) => {
+    if (store.keywords.some((k) => k.phrase === trimmed)) {
+      throw new Error("keyword already exists");
+    }
+    store.seq.keyword += 1;
+    const ts = new Date().toISOString();
+    store.keywords.push({
+      id: store.seq.keyword,
+      phrase: trimmed,
+      is_brand: false,
+      is_active: true,
+      match_mode: "domain_or_name",
+      created_at: ts,
+      updated_at: ts,
+    });
+  });
+  return data.keywords[data.keywords.length - 1];
+}
+
+export async function listRanksFromStore(limit = 100): Promise<RankRecord[]> {
+  const s = await readStore();
+  return [...s.ranks]
+    .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
+    .slice(0, limit);
+}
+
+export async function statsSummary() {
+  const ranks = await listRanksFromStore(200);
+  const enabled = await getEnabledPlatforms();
+  const byKey = new Map<string, RankRecord>();
+  for (const r of ranks) {
+    const key = `${r.phrase}|${r.engine}|${r.tab}`;
+    if (!byKey.has(key)) byKey.set(key, r);
+  }
+  return {
+    enabledPlatforms: enabled,
+    rows: [...byKey.values()],
+    totalSnapshots: ranks.length,
+    sampleCount: ranks.filter((r) => r.source === "sample").length,
+  };
+}
+
+export async function appendRankSnapshots(
+  rows: Omit<RankRecord, "id">[],
+): Promise<void> {
+  await updateStore((store) => {
+    store.seq.run += 1;
+    const runId = store.seq.run;
+    const ts = new Date().toISOString();
+    store.runs.push({
+      id: runId,
+      triggeredBy: "manual",
+      startedAt: ts,
+      finishedAt: ts,
+      status: "ok",
+      notes: null,
+    });
+    for (const row of rows) {
+      store.seq.rank += 1;
+      store.ranks.push({ ...row, id: store.seq.rank, runId });
+    }
+  });
+}
+
+export async function listKnowledge(): Promise<KnowledgeEntry[]> {
+  const s = await readStore();
+  return s.knowledge;
+}
+
+export async function createKnowledge(input: {
+  category: KnowledgeCategory;
+  title: string;
+  body: string;
+  revisionLabel?: string;
+}): Promise<KnowledgeEntry> {
+  let created!: KnowledgeEntry;
+  await updateStore((store) => {
+    store.seq.knowledge += 1;
+    created = {
+      id: id("kb"),
+      category: input.category,
+      title: input.title.trim(),
+      body: input.body.trim(),
+      revisionLabel: input.revisionLabel?.trim() || undefined,
+      isActive: true,
+      updatedAt: new Date().toISOString(),
+    };
+    store.knowledge.unshift(created);
+  });
+  return created;
+}
+
+export async function listQuestions(): Promise<KinQuestion[]> {
+  const s = await readStore();
+  return [...s.questions].sort((a, b) =>
+    b.detectedAt.localeCompare(a.detectedAt),
+  );
+}
+
+export async function getQuestion(qid: string): Promise<KinQuestion | null> {
+  const s = await readStore();
+  return s.questions.find((q) => q.id === qid) ?? null;
+}
+
+export async function getDraftForQuestion(
+  qid: string,
+): Promise<KinDraft | null> {
+  const s = await readStore();
+  const drafts = s.drafts.filter((d) => d.questionId === qid);
+  return drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+}
+
+export async function upsertQuestions(questions: KinQuestion[]): Promise<number> {
+  let added = 0;
+  await updateStore((store) => {
+    for (const q of questions) {
+      const exists = store.questions.some(
+        (x) => x.naverUrl === q.naverUrl || x.id === q.id,
+      );
+      if (exists) continue;
+      store.questions.unshift(q);
+      added += 1;
+    }
+  });
+  return added;
+}
+
+export async function generateAndStoreDraft(
+  questionId: string,
+): Promise<{ ok: boolean; draft?: KinDraft; errorMessage?: string }> {
+  const s = await readStore();
+  const question = s.questions.find((q) => q.id === questionId);
+  if (!question) {
+    return { ok: false, errorMessage: "question not found" };
+  }
+  const result = generateDraftFromKnowledge(question, s.knowledge);
+  if (!result.ok || !result.draft) {
+    return {
+      ok: false,
+      errorMessage: result.errorMessage ?? "draft failed",
+    };
+  }
+  await updateStore((store) => {
+    store.drafts.unshift(result.draft!);
+    const q = store.questions.find((x) => x.id === questionId);
+    if (q && q.status === "new") q.status = "drafted";
+  });
+  return { ok: true, draft: result.draft };
+}
+
+export async function updateDraftStatus(
+  draftId: string,
+  status: DraftStatus,
+  note?: string,
+): Promise<KinDraft | null> {
+  let updated: KinDraft | null = null;
+  await updateStore((store) => {
+    const d = store.drafts.find((x) => x.id === draftId);
+    if (!d) return;
+    d.status = status;
+    d.reviewedAt = new Date().toISOString();
+    if (note) d.reviewerNote = note;
+    const q = store.questions.find((x) => x.id === d.questionId);
+    if (q) {
+      if (status === "approved" || status === "copied_for_manual_post") {
+        q.status = status === "copied_for_manual_post" ? "manual_posted" : "approved";
+      } else if (status === "rejected") {
+        q.status = "dismissed";
+      }
+    }
+    updated = { ...d };
+  });
+  return updated;
+}
+
+export async function listAssignees(): Promise<AssignmentScope[]> {
+  const s = await readStore();
+  return s.assignees;
+}
+
+export async function upsertAssignee(
+  input: Omit<AssignmentScope, "id"> & { id?: string },
+): Promise<AssignmentScope> {
+  let row!: AssignmentScope;
+  await updateStore((store) => {
+    if (input.id) {
+      const idx = store.assignees.findIndex((a) => a.id === input.id);
+      if (idx >= 0) {
+        store.assignees[idx] = { ...store.assignees[idx], ...input, id: input.id };
+        row = store.assignees[idx];
+        return;
+      }
+    }
+    row = {
+      id: input.id ?? id("asg"),
+      keywordPhrase: input.keywordPhrase,
+      siteKey: input.siteKey,
+      assigneeEmail: input.assigneeEmail.toLowerCase(),
+      assigneeName: input.assigneeName,
+      isActive: input.isActive,
+    };
+    store.assignees.push(row);
+    if (!store.users.some((u) => u.email === row.assigneeEmail)) {
+      store.users.push({
+        id: id("user"),
+        email: row.assigneeEmail,
+        displayName: row.assigneeName,
+        role: "assignee",
+      });
+    }
+  });
+  return row;
+}
+
+export async function findUserByEmail(
+  email: string,
+): Promise<WebSightUser | null> {
+  const s = await readStore();
+  const norm = email.trim().toLowerCase();
+  return s.users.find((u) => u.email.toLowerCase() === norm) ?? null;
+}
+
+export async function listUsers(): Promise<WebSightUser[]> {
+  const s = await readStore();
+  return s.users;
+}
