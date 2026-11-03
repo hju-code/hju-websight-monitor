@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "env": {
+    "WEBSIGHT_DEV_AUTH": "true",
+    "TOS_MODE": "derived_meta",
+    "SNAPSHOT_TTL_DAYS": "21",
+    "AGGREGATE_KEEP": "false",
+    "GOOGLE_ENABLED": "false",
+    "ENABLED_PLATFORMS": "naver_web,daum_web,youtube"
+  }
+}
