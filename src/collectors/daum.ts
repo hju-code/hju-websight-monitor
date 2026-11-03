@@ -85,6 +85,7 @@ export class DaumKakaoCollector implements Collector {
     const pagesNeeded = Math.ceil(depth / pageSize);
     const hits: OrganicHit[] = [];
     let requestCount = 0;
+    let resultTotal: number | null = null;
     const fetchedAt = new Date().toISOString();
 
     try {
@@ -136,6 +137,15 @@ export class DaumKakaoCollector implements Collector {
           };
         }
 
+        if (
+          resultTotal == null &&
+          typeof body.meta?.total_count === "number" &&
+          Number.isFinite(body.meta.total_count)
+        ) {
+          resultTotal = body.meta.total_count;
+          notes.push(`daum.meta.total_count=${resultTotal}`);
+        }
+
         const docs = body.documents ?? [];
         for (const doc of docs) {
           if (!doc.url) continue;
@@ -166,6 +176,7 @@ export class DaumKakaoCollector implements Collector {
         ok: true,
         hits,
         scanned: hits.length,
+        resultTotal,
         status: hits.length > 0 ? "ok" : "partial",
         meta: {
           requestCount,

@@ -12,6 +12,8 @@ export interface DerivedRankRow {
   schoolStatus: "ok" | "not_found" | "error" | "skipped";
   matchedUrl: string | null;
   matchedDomain: string | null;
+  /** Provider search-result total (Naver webkr `total`) */
+  resultTotal?: number | null;
   requestCount: number;
   providerStatus: string | null;
   errorCode: string | null;
@@ -51,11 +53,13 @@ export async function insertRankSnapshot(runId: number, row: DerivedRankRow) {
     `INSERT INTO rank_snapshots (
       run_id, keyword_id, channel_id, collected_at, expires_at,
       scan_depth, scanned_count, school_rank, school_status,
-      matched_url, matched_domain, request_count, provider_status, error_code
+      matched_url, matched_domain, result_total,
+      request_count, provider_status, error_code
     ) VALUES (
       $1,$2,$3,$4,$5,
       $6,$7,$8,$9,
-      $10,$11,$12,$13,$14
+      $10,$11,$12,
+      $13,$14,$15
     )
     ON CONFLICT (run_id, keyword_id, channel_id) DO UPDATE SET
       collected_at = EXCLUDED.collected_at,
@@ -65,6 +69,7 @@ export async function insertRankSnapshot(runId: number, row: DerivedRankRow) {
       school_status = EXCLUDED.school_status,
       matched_url = EXCLUDED.matched_url,
       matched_domain = EXCLUDED.matched_domain,
+      result_total = EXCLUDED.result_total,
       request_count = EXCLUDED.request_count,
       provider_status = EXCLUDED.provider_status,
       error_code = EXCLUDED.error_code`,
@@ -80,6 +85,7 @@ export async function insertRankSnapshot(runId: number, row: DerivedRankRow) {
       row.schoolStatus,
       row.matchedUrl,
       row.matchedDomain,
+      row.resultTotal ?? null,
       row.requestCount,
       row.providerStatus,
       row.errorCode,
@@ -120,7 +126,8 @@ export async function listRecentRanks(limit = 50) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT s.id, s.collected_at, s.school_rank, s.school_status,
-            s.matched_domain, s.matched_url, k.phrase, c.engine, c.tab
+            s.matched_domain, s.matched_url, s.result_total,
+            k.phrase, c.engine, c.tab
      FROM rank_snapshots s
      JOIN keywords k ON k.id = s.keyword_id
      JOIN channels c ON c.id = s.channel_id

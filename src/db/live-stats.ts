@@ -57,6 +57,8 @@ function rowsFromCollectResults(
         typeof r.matched_url === "string" ? r.matched_url : null,
       matchedDomain:
         typeof r.matched_domain === "string" ? r.matched_domain : null,
+      resultTotal:
+        typeof r.result_total === "number" ? r.result_total : null,
       requestCount:
         typeof r.requestCount === "number" ? r.requestCount : 0,
       providerStatus:

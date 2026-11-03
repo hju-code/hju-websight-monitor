@@ -35,6 +35,8 @@ export interface RankRecord {
   schoolStatus: "ok" | "not_found" | "error" | "skipped";
   matchedUrl: string | null;
   matchedDomain: string | null;
+  /** Naver webkr `total` / Daum total_count — 검색결과(노출) 건수 */
+  resultTotal: number | null;
   requestCount: number;
   providerStatus: string | null;
   source: "live" | "sample" | "dry-run";
@@ -168,6 +170,7 @@ function sampleRanks(): RankRecord[] {
       schoolStatus: "ok",
       matchedUrl: "https://www.hj.ac.kr/",
       matchedDomain: "hj.ac.kr",
+      resultTotal: 12840,
       requestCount: 1,
       providerStatus: "ok",
       source: "sample",
@@ -183,6 +186,7 @@ function sampleRanks(): RankRecord[] {
       schoolStatus: "ok",
       matchedUrl: "https://www.hj.ac.kr/",
       matchedDomain: "hj.ac.kr",
+      resultTotal: 9320,
       requestCount: 2,
       providerStatus: "ok",
       source: "sample",
@@ -198,6 +202,7 @@ function sampleRanks(): RankRecord[] {
       schoolStatus: "ok",
       matchedUrl: "https://www.hj.ac.kr/",
       matchedDomain: "hj.ac.kr",
+      resultTotal: 5600,
       requestCount: 1,
       providerStatus: "ok",
       source: "sample",
@@ -213,6 +218,7 @@ function sampleRanks(): RankRecord[] {
       schoolStatus: "not_found",
       matchedUrl: null,
       matchedDomain: null,
+      resultTotal: 4100,
       requestCount: 2,
       providerStatus: "ok",
       source: "sample",
@@ -228,6 +234,7 @@ function sampleRanks(): RankRecord[] {
       schoolStatus: "ok",
       matchedUrl: "https://www.youtube.com/@hyejeon",
       matchedDomain: "youtube.com",
+      resultTotal: null,
       requestCount: 0,
       providerStatus: "sample",
       source: "sample",

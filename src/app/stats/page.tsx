@@ -52,7 +52,8 @@ export default async function PublicStatsPage({
             <tr>
               <th>키워드</th>
               <th>사이트</th>
-              <th>최근 순위</th>
+              <th>순위</th>
+              <th>검색결과 건수</th>
               <th>상태</th>
               <th>도메인</th>
             </tr>
@@ -60,7 +61,7 @@ export default async function PublicStatsPage({
           <tbody>
             {summary.rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   아직 집계가 없습니다. 관리자 수집 또는 샘플 시드를 확인하세요.
                 </td>
               </tr>
@@ -74,6 +75,13 @@ export default async function PublicStatsPage({
                   <td>
                     {r.schoolRank != null ? (
                       <strong>{r.schoolRank}</strong>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {r.resultTotal != null ? (
+                      <strong>{r.resultTotal.toLocaleString("ko-KR")}</strong>
                     ) : (
                       <span className="muted">—</span>
                     )}
@@ -110,7 +118,11 @@ export default async function PublicStatsPage({
       <section className="panel">
         <h2>안내</h2>
         <ul className="checklist">
-          <li>원문(title/snippet)은 저장하지 않으며 파생 순위만 표시합니다.</li>
+          <li>
+            원문(title/snippet)은 저장하지 않으며 파생 <strong>순위</strong>와
+            네이버 webkr <code>total</code> 기반 <strong>검색결과 건수</strong>
+            (노출)만 표시합니다.
+          </li>
           <li>
             Vercel 파일 스토어는 <code>/tmp</code> (인스턴스 휘발) — 내구성은 PG/KV
             권장. 샘플만 있으면 공개 통계가 Naver를 즉시 조회합니다.
