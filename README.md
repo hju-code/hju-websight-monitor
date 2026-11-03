@@ -71,7 +71,11 @@ db/001–003 · deploy/ · scripts/smoke.sh
 
 ## Env 요약
 
-`NAVER_*`, `KAKAO_REST_API_KEY`, `WEBSIGHT_DATABASE_URL`(선택), `ENABLED_PLATFORMS`,  
+`NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` — **NAVER API HUB** (`console.ncloud.com` → NAVER API HUB).  
+기본 호출: `naverapihub.apigw.ntruss.com` + `X-NCP-APIGW-API-KEY-ID` / `X-NCP-APIGW-API-KEY`.  
+구 키만 `NAVER_API_LEGACY=true`(openapi.naver.com, ~2027-06-30).  
+
+`KAKAO_REST_API_KEY`, `WEBSIGHT_DATABASE_URL`(선택), `ENABLED_PLATFORMS`,  
 `WEBSIGHT_DEV_AUTH=true`, `TOS_MODE=derived_meta`, `SNAPSHOT_TTL_DAYS=21`, `GOOGLE_ENABLED=false`.
 
 *시크릿 없음.*

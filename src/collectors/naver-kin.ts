@@ -1,18 +1,24 @@
 import { mentionsHyejeon, normalizeSchoolMention } from "../kin/aliases";
 import type { KinQuestion } from "../kin/types";
+import {
+  getNaverApiMode,
+  naverAuthHeaders,
+  naverErrorMessage,
+  naverSearchUrl,
+} from "./naver-client";
 import type { CollectRequest, CollectResult, Collector } from "./types";
 
 /**
  * Naver Kin (지식iN) detector — P1 scaffold / stub.
  *
  * Product use: find NEW questions mentioning 혜전대(해전대=혜전대), not SERP rank.
- * Official Search API tab: /v1/search/kin.json (P0 matrix — Top100 possible).
+ * Primary (API HUB): GET /search/v1/kin
+ * Legacy (flag):     GET /v1/search/kin.json on openapi.naver.com
  *
  * IMPORTANT:
  * - Detection only. NEVER posts answers.
  * - Full Kin answer posting API is out of scope; admin pastes via browser link.
  */
-const NAVER_KIN_URL = "https://openapi.naver.com/v1/search/kin.json";
 
 export class NaverKinDetector implements Collector {
   readonly id = "naver-kin-detect";
@@ -53,29 +59,30 @@ export class NaverKinDetector implements Collector {
           requestCount: 0,
           provider: "naver-kin",
           fetchedAt: new Date().toISOString(),
-          notes: ["Stub path ready — keys required for live detect"],
+          notes: [
+            "Stub path ready — NAVER API HUB keys required for live detect",
+          ],
         },
       };
     }
 
     const display = Math.min(Math.max(req.scanDepth, 1), 100);
-    const url = new URL(NAVER_KIN_URL);
+    const url = new URL(naverSearchUrl("kin"));
     url.searchParams.set("query", req.keyword);
     url.searchParams.set("display", String(display));
     url.searchParams.set("sort", "date");
 
     const fetchedAt = new Date().toISOString();
+    const apiMode = getNaverApiMode();
     try {
       const res = await fetch(url.toString(), {
-        headers: {
-          "X-Naver-Client-Id": clientId,
-          "X-Naver-Client-Secret": clientSecret,
-        },
+        headers: naverAuthHeaders(clientId, clientSecret),
         cache: "no-store",
       });
       const body = (await res.json()) as {
         items?: Array<{ title?: string; link?: string; description?: string }>;
         errorMessage?: string;
+        error?: { errorCode?: string; message?: string };
       };
       if (!res.ok) {
         return {
@@ -83,8 +90,13 @@ export class NaverKinDetector implements Collector {
           hits: [],
           scanned: 0,
           status: "error",
-          errorMessage: body.errorMessage || `HTTP ${res.status}`,
-          meta: { requestCount: 1, provider: "naver-kin", fetchedAt },
+          errorMessage: naverErrorMessage(body, res.status),
+          meta: {
+            requestCount: 1,
+            provider: "naver-kin",
+            fetchedAt,
+            notes: [`naverApiMode=${apiMode}`],
+          },
         };
       }
       const hits = (body.items ?? [])
@@ -111,6 +123,7 @@ export class NaverKinDetector implements Collector {
           provider: "naver-kin",
           fetchedAt,
           notes: [
+            `naverApiMode=${apiMode}`,
             "Kin detect only — auto-post DISABLED",
             "retainRaw=none recommended after admin maps to KinQuestion",
           ],
@@ -123,7 +136,12 @@ export class NaverKinDetector implements Collector {
         scanned: 0,
         status: "error",
         errorMessage: err instanceof Error ? err.message : String(err),
-        meta: { requestCount: 1, provider: "naver-kin", fetchedAt },
+        meta: {
+          requestCount: 1,
+          provider: "naver-kin",
+          fetchedAt,
+          notes: [`naverApiMode=${apiMode}`],
+        },
       };
     }
   }

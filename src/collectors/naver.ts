@@ -1,3 +1,9 @@
+import {
+  getNaverApiMode,
+  naverAuthHeaders,
+  naverErrorMessage,
+  naverSearchUrl,
+} from "./naver-client";
 import type {
   CollectRequest,
   CollectResult,
@@ -7,16 +13,17 @@ import type {
 
 /**
  * Naver Search API — web tab only for P1.
- * Endpoint: GET https://openapi.naver.com/v1/search/webkr.json
+ * Primary (API HUB): GET https://naverapihub.apigw.ntruss.com/search/v1/webkr
+ * Legacy (flag):     GET https://openapi.naver.com/v1/search/webkr.json
  * Top100: display=100, start=1 (1 call per keyword).
  *
  * Env placeholders (never commit real secrets):
  *   NAVER_CLIENT_ID
  *   NAVER_CLIENT_SECRET
+ *   NAVER_API_LEGACY=true  (optional; old Developers keys until ~2027-06-30)
  *
  * ToS-safe: retainRaw defaults to none. title/snippet stay in memory for matcher only.
  */
-const NAVER_WEB_URL = "https://openapi.naver.com/v1/search/webkr.json";
 
 interface NaverWebItem {
   title?: string;
@@ -32,6 +39,7 @@ interface NaverWebResponse {
   items?: NaverWebItem[];
   errorMessage?: string;
   errorCode?: string;
+  error?: { errorCode?: string; message?: string; details?: string };
 }
 
 function stripHtml(s: string): string {
@@ -48,6 +56,7 @@ export class NaverSearchCollector implements Collector {
   async collect(req: CollectRequest): Promise<CollectResult> {
     const retainRaw = req.retainRaw ?? "none";
     const notes: string[] = [];
+    const apiMode = getNaverApiMode();
 
     if (!this.supports(req.engine, req.tab)) {
       return {
@@ -78,26 +87,26 @@ export class NaverSearchCollector implements Collector {
           requestCount: 0,
           provider: "naver-search",
           fetchedAt: new Date().toISOString(),
-          notes: ["Set campus-issued Naver Search API credentials in .env"],
+          notes: [
+            "Set campus-issued NAVER API HUB credentials in .env (console.ncloud.com)",
+          ],
         },
       };
     }
 
     const display = Math.min(Math.max(req.scanDepth, 1), 100);
-    const url = new URL(NAVER_WEB_URL);
+    const url = new URL(naverSearchUrl("webkr"));
     url.searchParams.set("query", req.keyword);
     url.searchParams.set("display", String(display));
     url.searchParams.set("start", "1");
 
     const fetchedAt = new Date().toISOString();
+    notes.push(`naverApiMode=${apiMode}`);
 
     try {
       const res = await fetch(url.toString(), {
         method: "GET",
-        headers: {
-          "X-Naver-Client-Id": clientId,
-          "X-Naver-Client-Secret": clientSecret,
-        },
+        headers: naverAuthHeaders(clientId, clientSecret),
         cache: "no-store",
       });
 
@@ -112,6 +121,7 @@ export class NaverSearchCollector implements Collector {
             requestCount: 1,
             provider: "naver-search",
             fetchedAt,
+            notes,
           },
         };
       }
@@ -124,13 +134,12 @@ export class NaverSearchCollector implements Collector {
           hits: [],
           scanned: 0,
           status: "error",
-          errorMessage:
-            body.errorMessage ||
-            `Naver HTTP ${res.status} ${body.errorCode || ""}`.trim(),
+          errorMessage: naverErrorMessage(body, res.status),
           meta: {
             requestCount: 1,
             provider: "naver-search",
             fetchedAt,
+            notes,
           },
         };
       }
@@ -185,6 +194,7 @@ export class NaverSearchCollector implements Collector {
           requestCount: 1,
           provider: "naver-search",
           fetchedAt,
+          notes,
         },
       };
     }
