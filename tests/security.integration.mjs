@@ -58,6 +58,11 @@ for (const path of ["/api/assignees", "/api/keywords", "/api/knowledge", "/api/k
     assert.ok([401, 403].includes(response.status), `expected denial, got ${response.status}`);
   });
 }
+
+test("anonymous knowledge status changes are denied", async () => {
+  const response = await fetch(base + "/api/knowledge", { method: "PATCH", headers: { "content-type": "application/json", origin: base }, body: JSON.stringify({ id: "fixture", active: false }) });
+  assert.ok([401, 403].includes(response.status));
+});
 test("unimplemented magic link cannot claim email was sent", async () => {
   const response = await fetch(base + "/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "websight-admin@hj.ac.kr" }) });
   assert.notEqual(response.status, 200);

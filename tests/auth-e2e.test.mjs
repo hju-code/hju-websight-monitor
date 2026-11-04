@@ -48,6 +48,13 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/auth", { email: "user@example.org", password: userPassword1 }); assert.equal(res.status, 200, await res.clone().text()); let userCookie = res.headers.get("set-cookie").split(";")[0];
     res = await post("/api/auth/password", { current: userPassword1, next: userPassword2 }, userCookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/auth", { email: "user@example.org", password: userPassword2 }); assert.equal(res.status, 200, await res.clone().text()); userCookie = res.headers.get("set-cookie").split(";")[0];
+    const knowledge = { id: "fixture-knowledge", category: "admission", title: "자료", body: "내용", isActive: true, updatedAt: new Date().toISOString() };
+    await db.query("UPDATE websight.app_state SET data=jsonb_set(data, '{knowledge}', data->'knowledge' || $1::jsonb) WHERE id=1", [JSON.stringify([knowledge])]);
+    const patch = (actor, active) => fetch(base + "/api/knowledge", { method: "PATCH", headers: { cookie: actor, "content-type": "application/json" }, body: JSON.stringify({ id: knowledge.id, active }) });
+    assert.equal((await patch(userCookie, false)).status, 401);
+    assert.equal((await patch(cookie, false)).status, 200);
+    assert.equal((await (await fetch(base + "/api/knowledge", { headers: { cookie } })).json()).entries.find(k => k.id === knowledge.id).isActive, false);
+    assert.equal((await patch(cookie, true)).status, 200);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.ok(questions.length >= 2);
     res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200);

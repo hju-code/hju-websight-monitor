@@ -162,6 +162,18 @@ export async function listKnowledge(): Promise<KnowledgeEntry[]> {
   return s.knowledge;
 }
 
+export async function setKnowledgeActive(id: string, active: boolean): Promise<boolean> {
+  let found = false;
+  await updateStore(store => {
+    const entry = store.knowledge.find(item => item.id === id);
+    if (!entry) return;
+    entry.isActive = active;
+    entry.updatedAt = new Date().toISOString();
+    found = true;
+  });
+  return found;
+}
+
 export async function createKnowledge(input: {
   category: KnowledgeCategory;
   title: string;

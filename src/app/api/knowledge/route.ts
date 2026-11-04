@@ -1,7 +1,7 @@
 import { isSafeMutation } from "../../../auth/csrf";
 import { requireRole } from "../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
-import { createKnowledge, listKnowledge } from "../../../db/store";
+import { createKnowledge, listKnowledge, setKnowledgeActive } from "../../../db/store";
 import type { KnowledgeCategory } from "../../../kin/types";
 import { prepareKnowledge } from "../../../kin/ai";
 
@@ -16,6 +16,18 @@ export async function GET() {
     entries,
     autoPostEnabled: false,
   });
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "unsupported" }, { status: 415 });
+  const body = await req.json().catch(() => null) as { id?: unknown; active?: unknown } | null;
+  if (!body || typeof body.id !== "string" || body.id.length > 100 || typeof body.active !== "boolean") return NextResponse.json({ error: "요청을 확인해 주세요." }, { status: 400 });
+  try {
+    const ok = await setKnowledgeActive(body.id, body.active);
+    return NextResponse.json({ ok }, { status: ok ? 200 : 404 });
+  } catch { return NextResponse.json({ error: "자료 상태를 변경하지 못했습니다." }, { status: 500 }); }
 }
 
 export async function POST(req: NextRequest) {
