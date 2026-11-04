@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as { current?: unknown; next?: unknown } | null;
   if (!body || typeof body.current !== "string" || typeof body.next !== "string") return NextResponse.json({ ok: false }, { status: 400 });
   const ok = await getAuthService().changePassword(user.id, body.current, body.next);
-  if (!ok) return NextResponse.json({ ok: false, error: "현재 비밀번호와 새 비밀번호를 확인하세요. 새 비밀번호는 12자 이상이어야 합니다." }, { status: 400 });
+  if (!ok) return NextResponse.json({ ok: false, error: "현재 비밀번호와 새 비밀번호를 확인하세요. 새 비밀번호는 9자 이상이어야 합니다." }, { status: 400 });
   const response = NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(0));
   return response;

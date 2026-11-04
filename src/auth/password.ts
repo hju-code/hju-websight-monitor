@@ -5,10 +5,10 @@ function scrypt(password: string, salt: Buffer): Promise<Buffer> {
 }
 const options = { N: 131072, r: 8, p: 1, maxmem: 160 * 1024 * 1024 };
 export function validatePassword(password: string): boolean {
-  return typeof password === "string" && [...password].length >= 12 && Buffer.byteLength(password, "utf8") <= 1024;
+  return typeof password === "string" && [...password].length >= 9 && Buffer.byteLength(password, "utf8") <= 1024;
 }
 export async function hashPassword(password: string): Promise<string> {
-  if (!validatePassword(password)) throw new Error("password must be at least 12 characters and at most 1024 bytes");
+  if (!validatePassword(password)) throw new Error("password must be at least 9 characters and at most 1024 bytes");
   const salt = randomBytes(16);
   const result = (await scrypt(password, salt)) as Buffer;
   return `scrypt-v1:${salt.toString("hex")}:${result.toString("hex")}`;

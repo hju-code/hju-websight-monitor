@@ -10,7 +10,7 @@
 
 ## 실행 준비
 
-Node.js 및 PostgreSQL이 필요합니다. `db/001`부터 `db/006`까지 순서대로 적용하고, `deploy/env.example`을 참고해 서버의 비밀 환경변수를 설정합니다. 초기 관리자 이메일과 12자 이상 초기 비밀번호는 `WEBSIGHT_ADMIN_EMAIL` 및 `WEBSIGHT_INITIAL_ADMIN_PASSWORD`로 설정합니다. 첫 로그인 후 비밀번호를 변경해야 하며, 이후 환경변수를 변경해도 기존 계정 비밀번호는 덮어쓰지 않습니다.
+Node.js 및 PostgreSQL이 필요합니다. `db/001`부터 `db/006`까지 순서대로 적용하고, `deploy/env.example`을 참고해 서버의 비밀 환경변수를 설정합니다. 초기 관리자 이메일과 9자 이상 초기 비밀번호는 `WEBSIGHT_ADMIN_EMAIL` 및 `WEBSIGHT_INITIAL_ADMIN_PASSWORD`로 설정합니다. 첫 로그인 후 비밀번호를 변경해야 하며, 이후 환경변수를 변경해도 기존 계정 비밀번호는 덮어쓰지 않습니다.
 
 ```bash
 npm ci

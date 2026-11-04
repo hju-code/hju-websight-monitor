@@ -14,10 +14,10 @@ export default function PasswordPage() {
       router.push("/login?passwordChanged=1"); router.refresh();
     } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
-  return <section className="panel"><h2>비밀번호 변경</h2><p>새 비밀번호는 12자 이상이어야 합니다. 변경 후 다시 로그인해 주세요.</p><form className="admin-form" onSubmit={submit}>
+  return <section className="panel"><h2>비밀번호 변경</h2><p>새 비밀번호는 9자 이상이어야 합니다. 변경 후 다시 로그인해 주세요.</p><form className="admin-form" onSubmit={submit}>
     <div className="form-row"><label htmlFor="current">현재 비밀번호</label><PasswordInput id="current" name="current" autoComplete="current-password" required /></div>
-    <div className="form-row"><label htmlFor="next">새 비밀번호</label><PasswordInput id="next" name="next" autoComplete="new-password" minLength={12} required /></div>
-    <div className="form-row"><label htmlFor="confirm">새 비밀번호 확인</label><PasswordInput id="confirm" name="confirm" autoComplete="new-password" minLength={12} required /></div>
+    <div className="form-row"><label htmlFor="next">새 비밀번호</label><PasswordInput id="next" name="next" autoComplete="new-password" minLength={9} required /></div>
+    <div className="form-row"><label htmlFor="confirm">새 비밀번호 확인</label><PasswordInput id="confirm" name="confirm" autoComplete="new-password" minLength={9} required /></div>
     <button className="btn" disabled={busy}>비밀번호 변경</button>{message && <p role="alert">{message}</p>}
   </form></section>;
 }

@@ -12,8 +12,8 @@ test("password hashes are salted and verify only the original password", async (
 });
 test("rejects passwords below the minimum and oversized input", () => {
   assert.equal(validatePassword("short"), false);
-  assert.equal(validatePassword("a".repeat(11)), false);
-  assert.equal(validatePassword("a".repeat(12)), true);
+  assert.equal(validatePassword("a".repeat(8)), false);
+  assert.equal(validatePassword("a".repeat(9)), true);
   assert.equal(validatePassword("a".repeat(1025)), false);
   assert.equal(validatePassword("good-password-42"), true);
 });

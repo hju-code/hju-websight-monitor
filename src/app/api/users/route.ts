@@ -25,5 +25,5 @@ export async function POST(req: NextRequest) {
       await service.resetPassword(body.id, body.password); return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "invalid request" }, { status: 400 });
-  } catch { return NextResponse.json({ error: "입력값이나 계정 상태를 확인하세요. 비밀번호는 12자 이상이어야 합니다." }, { status: 400 }); }
+  } catch { return NextResponse.json({ error: "입력값이나 계정 상태를 확인하세요. 비밀번호는 9자 이상이어야 합니다." }, { status: 400 }); }
 }
