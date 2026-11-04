@@ -22,7 +22,7 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     await pg.initialise(); await pg.start(); db = pg.getPgClient(); await db.connect();
     for (const name of ["001_websight_schema.sql", "002_kin_admin.sql", "003_assignees_settings.sql", "004_result_total.sql", "005_password_auth.sql", "006_app_state.sql"]) await db.query(await readFile(`db/${name}`, "utf8"));
     const base = `http://127.0.0.1:${appPort}`;
-    const env = { ...process.env, NODE_ENV: "development", VERCEL: "", WEBSIGHT_DATABASE_URL: `postgresql://postgres:test-only-password@127.0.0.1:${dbPort}/postgres`, POSTGRES_URL: "", NAVER_CLIENT_ID: "", NAVER_CLIENT_SECRET: "", KAKAO_REST_API_KEY: "", ENABLED_PLATFORMS: "naver_web", CRON_SECRET: "test-cron-secret-123456", WEBSIGHT_ADMIN_EMAIL: "admin@example.org", WEBSIGHT_INITIAL_ADMIN_PASSWORD: password1 };
+    const env = { ...process.env, NODE_ENV: "development", VERCEL: "", WEBSIGHT_DATABASE_URL: `postgresql://postgres:test-only-password@127.0.0.1:${dbPort}/postgres`, POSTGRES_URL: "", OPENAI_API_KEY: "", NAVER_CLIENT_ID: "", NAVER_CLIENT_SECRET: "", KAKAO_REST_API_KEY: "", ENABLED_PLATFORMS: "naver_web", CRON_SECRET: "test-cron-secret-123456", WEBSIGHT_ADMIN_EMAIL: "admin@example.org", WEBSIGHT_INITIAL_ADMIN_PASSWORD: password1 };
     child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "-H", "127.0.0.1", "-p", String(appPort)], { env, stdio: "ignore" });
     let ready = false;
     for (let i = 0; i < 100; i++) { try { if ((await fetch(base + "/login")).ok) { ready = true; break; } } catch {} await new Promise(resolve => setTimeout(resolve, 200)); }
@@ -34,6 +34,8 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/auth/password", { current: password1, next: password2 }, cookie); assert.equal(res.status, 200, await res.clone().text());
     assert.equal((await fetch(base + "/api/users", { headers: { cookie } })).status, 401);
     res = await post("/api/auth", { email: "admin@example.org", password: password2 }); assert.equal(res.status, 200, await res.clone().text()); cookie = res.headers.get("set-cookie").split(";")[0];
+    res = await post("/api/knowledge", { category: "department", departmentName: "간호학과", body: "학과 정보" }, cookie);
+    assert.equal(res.status, 503); assert.match((await res.json()).error, /OPENAI_API_KEY/);
     await db.query("BEGIN"); await db.query("SELECT pg_advisory_xact_lock(527391042)");
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 409, await res.clone().text()); await db.query("ROLLBACK");
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 200, await res.clone().text()); assert.ok((await res.json()).failures > 0);

@@ -74,6 +74,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (category === "department") {
+    if (!departmentName || departmentName.length > 100) return NextResponse.json({ ok: false, error: "학과명을 입력해 주세요." }, { status: 400 });
+    title = departmentName;
+  }
   if (!title.trim() || !body.trim()) {
     return NextResponse.json(
       { ok: false, error: "title and body required", autoPostEnabled: false },
@@ -82,7 +86,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (title.length > 200 || body.length > 20000 || revisionLabel.length > 100 || !["department", "admission", "tuition", "campus", "other"].includes(category)) return NextResponse.json({ ok: false, error: "입력 내용이 너무 길거나 구분이 올바르지 않습니다." }, { status: 400 });
-  if (category === "department" && (!departmentName || departmentName.length > 100)) return NextResponse.json({ ok: false, error: "학과명을 입력해 주세요." }, { status: 400 });
 
   let prepared;
   try { prepared = await prepareKnowledge(title, body, images); }
