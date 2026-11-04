@@ -12,7 +12,7 @@ export function KinReviewSplit({ question, draft: initial }: { question: KinQues
       const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, questionId: question.id, draftId: action === "save" || action === "generate" || action === "ai_generate" ? undefined : draft?.id, body: text, topic: action === "ai_generate" ? topic : undefined }) });
       const result = await response.json();
       if (!response.ok || !result.ok) { setMessage(result.error || result.errorMessage || "처리하지 못했습니다."); return; }
-      setDraft(result.draft); setText(result.draft.draftBody); setMessage(result.sources ? `AI 초안을 저장했습니다. 참고 자료: ${result.sources.join(", ")}` : "저장했습니다."); router.refresh();
+      setDraft(result.draft); setText(result.draft.draftBody); setMessage("저장했습니다."); router.refresh();
     } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
   async function copy() {

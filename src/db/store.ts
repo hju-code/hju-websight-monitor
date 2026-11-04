@@ -171,6 +171,8 @@ export async function createKnowledge(input: {
   embedding?: number[];
   embeddingModel?: string;
   images?: { type: string; data: string }[];
+  sections?: { page: number; text: string; embedding: number[] }[];
+  sourceFileName?: string;
 }): Promise<KnowledgeEntry> {
   let created!: KnowledgeEntry;
   await updateStore((store) => {
@@ -187,6 +189,8 @@ export async function createKnowledge(input: {
       embedding: input.embedding,
       embeddingModel: input.embeddingModel,
       images: input.images,
+      sections: input.sections,
+      sourceFileName: input.sourceFileName,
     };
     store.knowledge.unshift(created);
   });

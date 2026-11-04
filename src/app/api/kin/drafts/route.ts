@@ -30,11 +30,11 @@ export async function POST(req: NextRequest) {
     if (typeof body.topic !== "string" || !body.topic.trim() || body.topic.length > 400) return NextResponse.json({ error: "학교 업무 주제를 400자 이내로 입력해 주세요." }, { status: 400 });
     try {
       const model = aiConfig().embeddingModel;
-      const entries = (await listKnowledge()).filter(k => k.isActive && k.summary && k.embedding?.length && k.embeddingModel === model).map(k => ({ title: k.title, summary: k.summary!, embedding: k.embedding! }));
+      const entries = (await listKnowledge()).filter(k => k.isActive && k.embeddingModel === model).flatMap(k => k.sections?.length ? k.sections.map(section => ({ title: k.title, summary: section.text, embedding: section.embedding })) : k.summary && k.embedding?.length ? [{ title: k.title, summary: k.summary, embedding: k.embedding }] : []);
       if (!entries.length) return NextResponse.json({ error: "AI 검색용 학교 자료가 없습니다. 관리자에게 자료 등록을 요청해 주세요." }, { status: 400 });
       const result = await draftFromKnowledge(body.topic.trim(), entries);
       const draft = await saveDraftBody(questionId, result.answer);
-      return NextResponse.json({ ok: true, draft, sources: result.sources });
+      return NextResponse.json({ ok: true, draft });
     } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "초안을 생성하지 못했습니다." }, { status: 503 }); }
   }
   if (body.action === "generate") return NextResponse.json({ ...(await generateAndStoreDraft(questionId)), autoPostEnabled: false });

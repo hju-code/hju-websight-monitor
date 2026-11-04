@@ -27,6 +27,8 @@ export interface KnowledgeEntry {
   embedding?: number[];
   embeddingModel?: string;
   images?: { type: string; data: string }[];
+  sections?: { page: number; text: string; embedding: number[] }[];
+  sourceFileName?: string;
 }
 
 export type KinDetectStatus = "new" | "drafted" | "approved" | "dismissed" | "manual_posted";

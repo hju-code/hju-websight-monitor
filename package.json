@@ -18,6 +18,7 @@
   "dependencies": {
     "dotenv": "^18.0.9",
     "next": "^16.4.4",
+    "pdfjs-dist": "^6.5.438",
     "pg": "^8.23.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

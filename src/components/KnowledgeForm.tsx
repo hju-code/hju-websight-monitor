@@ -7,6 +7,19 @@ export function KnowledgeForm() {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pdfMsg, setPdfMsg] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  async function uploadPdf(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setPdfBusy(true); setPdfMsg(null);
+    const form = e.currentTarget;
+    try {
+      const res = await fetch("/api/knowledge/pdf", { method: "POST", body: new FormData(form) });
+      const result = await res.json();
+      if (!res.ok) { setPdfMsg(result.error || "PDF 등록에 실패했습니다."); return; }
+      setPdfMsg(`등록 완료: ${result.sectionCount}개 구간을 검색할 수 있습니다.${result.emptyPages ? ` 글자가 거의 없는 ${result.emptyPages}쪽은 누락됐을 수 있으니 OCR 처리 후 확인해 주세요.` : ""}`); form.reset(); router.refresh();
+    } catch { setPdfMsg("서버에 연결하지 못했습니다."); } finally { setPdfBusy(false); }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,7 +42,13 @@ export function KnowledgeForm() {
     router.refresh();
   }
 
-  return (
+  return <>
+    <form className="admin-form" onSubmit={uploadPdf}>
+      <div className="form-row"><label htmlFor="pdf">입시요강 PDF</label><input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required /><span className="muted">PDF 1개, 최대 3.5MB · 최대 150쪽. 글자를 추출해 검색 자료로 저장합니다. 이미지로만 된 PDF는 문자 인식(OCR)이 필요합니다.</span></div>
+      <button className="btn" disabled={pdfBusy}>{pdfBusy ? "PDF 분석 중…" : "PDF 등록 및 검색 준비"}</button>
+      {pdfMsg && <p role="status">{pdfMsg}</p>}
+    </form>
+    <details><summary>직접 입력 또는 사진으로 등록</summary>
     <form className="admin-form" onSubmit={onSubmit}>
       <div className="form-grid">
         <div className="form-row">
@@ -67,6 +86,6 @@ export function KnowledgeForm() {
         </button>
         {msg ? <span className="muted" style={{ marginLeft: "0.75rem" }}>{msg}</span> : null}
       </div>
-    </form>
-  );
+    </form></details>
+  </>;
 }

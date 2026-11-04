@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "pdfjs-dist"],
+  outputFileTracingIncludes: { "/api/knowledge/pdf": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"] },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },
