@@ -2,7 +2,7 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, markPostedWithHistory, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
 import { aiConfig, detectDepartment, draftFromKnowledge } from "../../../../kin/ai";
 import type { AnswerKnowledge } from "../../../../kin/retrieval";
 import type { DraftStatus } from "../../../../kin/types";
@@ -23,8 +23,13 @@ export async function POST(req: NextRequest) {
   let questionId = typeof body.questionId === "string" ? body.questionId : undefined;
   if (body.draftId) questionId = (await getDraftById(body.draftId))?.questionId;
   if (!questionId || !(await permitted(user, questionId))) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (body.action === "mark_answered" || body.action === "clear_answered") {
-    const ok = await setManualAnswerStatus(questionId, body.action === "mark_answered");
+  if (body.action === "mark_answered") {
+    if (typeof body.body !== "string" || !body.body.trim() || body.body.length > 20000) return NextResponse.json({ error: "기록할 답변 내용을 입력한 후 확인 표시를 눌러 주세요." }, { status: 400 });
+    try { const draft = await markPostedWithHistory(questionId, body.body, user.email); return NextResponse.json({ ok: !!draft }, { status: draft ? 200 : 404 }); }
+    catch { return NextResponse.json({ error: "답변 기록을 저장하지 못했습니다." }, { status: 500 }); }
+  }
+  if (body.action === "clear_answered") {
+    const ok = await setManualAnswerStatus(questionId, false);
     return NextResponse.json({ ok });
   }
   if (body.action === "ai_generate") {

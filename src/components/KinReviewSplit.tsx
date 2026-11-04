@@ -23,16 +23,18 @@ export function KinReviewSplit({ question, departments }: { question: KinQuestio
     try { await navigator.clipboard.writeText(text); setMessage("복사했습니다. 네이버에서 직접 붙여넣어 주세요."); } catch { setMessage("복사하지 못했습니다. 내용을 직접 선택해 복사해 주세요."); }
   }
   async function markAnswer(answered: boolean) {
+    if (answered && !text.trim()) { setMessage("기록할 답변 내용을 입력한 후 확인 표시를 눌러 주세요."); return; }
     if (answered && !window.confirm("네이버 원문에서 혜전대학교 답변을 직접 확인했습니까?")) return;
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: answered ? "mark_answered" : "clear_answered", questionId: question.id }) });
-      if (!response.ok) { setMessage("답변 상태를 저장하지 못했습니다."); return; }
-      setMessage(answered ? "답변 확인 상태를 저장했습니다." : "답변 확인 표시를 해제했습니다."); router.refresh();
+      const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: answered ? "mark_answered" : "clear_answered", questionId: question.id, body: answered ? text : undefined }) });
+      const result = await response.json();
+      if (!response.ok) { setMessage(result.error || "답변 상태를 저장하지 못했습니다."); return; }
+      setMessage(answered ? "답변 확인 상태와 기록을 저장했습니다." : "답변 확인 표시를 해제했습니다."); router.refresh();
     } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
   return <div className="review-split">
-    <section className="review-pane"><h2>질문</h2><h3>{question.title}</h3><p className="muted">{new Date(question.detectedAt).toLocaleString("ko-KR")}</p><p className="review-body">{question.questionText}</p><p><a href={question.naverUrl} target="_blank" rel="noopener noreferrer">네이버에서 질문과 답변 확인하기 ↗</a></p><p>{question.status === "manual_posted" ? "혜전대학교 답변 확인됨 (담당자 표시)" : "혜전대학교 답변 여부 미확인"}</p><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(question.status !== "manual_posted")}>{question.status === "manual_posted" ? "확인 표시 해제" : "혜전대학교 답변 확인 표시"}</button><p className="muted">질문에 답변을 작성한 경우 눌러주세요.</p></section>
+    <section className="review-pane"><h2>질문</h2><h3>{question.title}</h3><p className="muted">{new Date(question.detectedAt).toLocaleString("ko-KR")}</p><p className="review-body">{question.questionText}</p><p><a href={question.naverUrl} target="_blank" rel="noopener noreferrer">네이버에서 질문과 답변 확인하기 ↗</a></p><p>{question.status === "manual_posted" ? "혜전대학교 답변 확인됨 (담당자 표시)" : "혜전대학교 답변 여부 미확인"}</p><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(question.status !== "manual_posted")}>{question.status === "manual_posted" ? "확인 표시 해제" : "혜전대학교 답변 확인 표시"}</button><p className="muted">질문에 답변을 작성한 경우 눌러주세요. 아래 답변 내용이 로그인 계정과 함께 기록됩니다.</p>{message && <p role="status">{message}</p>}</section>
     <section className="review-pane review-pane-draft"><h2>답변 작성</h2><p className="muted">질문을 입력한 뒤 답변을 생성하고, 확인 후 네이버에서 직접 게시하세요.</p>
       <ol className="answer-steps" aria-label="답변 작성 순서"><li><strong>1. 질문 확인</strong><span>네이버에서 질문을 열어 내용을 확인합니다.</span></li><li><strong>2. 질문 붙여넣기</strong><span>질문을 복사해 아래 입력칸에 붙여넣습니다.</span></li><li><strong>3. 답변 생성·검토</strong><span>답변 생성 버튼을 누르고 내용을 확인합니다.</span></li><li><strong>4. 네이버에 등록</strong><span>검토한 답변을 복사해 네이버에서 직접 작성합니다.</span></li></ol>
       <div className="admin-form"><label htmlFor="ai-topic">질문 입력</label><textarea id="ai-topic" value={topic} onChange={e => setTopic(e.target.value)} maxLength={4000} placeholder="네이버에서 확인한 질문을 복사해 붙여넣어 주세요." /><p className="muted">답변 생성 시 입력한 질문과 학교 자료가 GPT로 전달됩니다.</p></div>

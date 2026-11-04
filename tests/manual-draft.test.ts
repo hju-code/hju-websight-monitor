@@ -8,7 +8,7 @@ test("a manual answer can be created and edited", async () => {
   process.env.WEBSIGHT_STORE_PATH = join(dir, "data.json");
   process.env.WEBSIGHT_DATABASE_URL = ""; process.env.POSTGRES_URL = "";
   try {
-    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, getQuestion, setManualAnswerStatus, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
+    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, changeHistoryState, markPostedWithHistory, getQuestion, setManualAnswerStatus, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
     await upsertQuestions([{ id: "manual-question", title: "질문", questionText: "", naverUrl: "https://kin.naver.com/test", detectedAt: new Date().toISOString(), matchedAliases: [], status: "new" }]);
     const first = await saveDraftBody("manual-question", "첫 답변");
     assert.equal(first?.draftBody, "첫 답변");
@@ -16,11 +16,26 @@ test("a manual answer can be created and edited", async () => {
     assert.notEqual(first?.id, second?.id);
     assert.equal((await listDraftHistory()).filter(d => d.questionId === "manual-question").length, 2);
     assert.equal((await getDraftForQuestion("manual-question"))?.draftBody, "수정한 답변");
+    const own = await saveDraftBody("manual-question", "내 기록", "user@example.org");
+    assert.equal(await changeHistoryState([own!.id], { role: "assignee", email: "other@example.org" }, true), false);
+    assert.equal(await changeHistoryState([own!.id], { role: "assignee", email: "USER@example.org" }, true), true);
+    assert.ok((await listDraftHistory()).find(d => d.id === own!.id)?.deletedAt);
+    assert.equal(await changeHistoryState([own!.id], { role: "assignee", email: "user@example.org" }, false), false);
+    assert.equal(await changeHistoryState([own!.id], { role: "admin", email: "admin@example.org" }, false), true);
+    assert.equal(await changeHistoryState([first!.id], { role: "assignee", email: "user@example.org" }, true), false);
+    assert.equal(await changeHistoryState([first!.id], { role: "admin", email: "admin@example.org" }, true), true);
     assert.equal(await setManualAnswerStatus("manual-question", true), true);
     assert.equal((await getQuestion("manual-question"))?.status, "manual_posted");
     assert.equal(await setManualAnswerStatus("manual-question", false), true);
     assert.equal((await getQuestion("manual-question"))?.status, "drafted");
     assert.equal(await setManualAnswerStatus("missing", true), false);
+    const posted = await markPostedWithHistory("manual-question", "게시 답변", "user@example.org");
+    assert.equal(posted?.savedBy, "user@example.org");
+    assert.ok(posted?.createdAt);
+    const again = await markPostedWithHistory("manual-question", "게시 답변", "user@example.org");
+    assert.equal(again?.id, posted?.id);
+    assert.equal((await listDraftHistory()).filter(d => d.questionId === "manual-question" && d.draftBody === "게시 답변").length, 1);
+    await assert.rejects(markPostedWithHistory("manual-question", "  ", "user@example.org"));
     const knowledge = await createKnowledge({ category: "admission", title: "검토 자료", body: "내용" });
     assert.equal(await setKnowledgeActive(knowledge.id, false), true);
     assert.equal((await listKnowledge()).find(k => k.id === knowledge.id)?.isActive, false);

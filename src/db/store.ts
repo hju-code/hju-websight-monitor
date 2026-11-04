@@ -230,22 +230,58 @@ export async function setManualAnswerStatus(qid: string, answered: boolean): Pro
     const question = store.questions.find(q => q.id === qid);
     if (!question) return;
     found = true;
-    question.status = answered ? "manual_posted" : store.drafts.some(d => d.questionId === qid) ? "drafted" : "new";
+    question.status = answered ? "manual_posted" : store.drafts.some(d => d.questionId === qid && !d.deletedAt) ? "drafted" : "new";
   });
   return found;
+}
+
+/** Marking a published answer and saving its history are a single atomic update. */
+export async function markPostedWithHistory(questionId: string, body: string, email: string): Promise<KinDraft | null> {
+  if (!body.trim() || body.length > 20000 || !email.trim()) throw new Error("답변 내용을 확인해 주세요.");
+  let result: KinDraft | null = null;
+  await updateStore(store => {
+    const question = store.questions.find(q => q.id === questionId);
+    if (!question) return;
+    const normalized = email.trim().toLowerCase();
+    result = store.drafts.find(d => !d.deletedAt && d.questionId === questionId && d.savedBy?.trim().toLowerCase() === normalized && d.draftBody === body.trim()) ?? null;
+    if (!result) {
+      result = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString(), savedBy: normalized };
+      store.drafts.unshift(result);
+    }
+    question.status = "manual_posted";
+  });
+  return result;
 }
 
 export async function getDraftForQuestion(
   qid: string,
 ): Promise<KinDraft | null> {
   const s = await readStore();
-  const drafts = s.drafts.filter((d) => d.questionId === qid);
+  const drafts = s.drafts.filter((d) => d.questionId === qid && !d.deletedAt);
   return drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 }
 
 export async function listDraftHistory(): Promise<KinDraft[]> {
   const store = await readStore();
   return [...store.drafts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Soft deletion preserves recovery and checks ownership inside the same transaction. */
+export async function changeHistoryState(ids: string[], actor: { role: "admin" | "assignee"; email: string }, deleted: boolean): Promise<boolean> {
+  let changed = false;
+  await updateStore(store => {
+    const unique = [...new Set(ids)];
+    const records = unique.map(id => store.drafts.find(d => d.id === id));
+    if (!unique.length || records.some(d => !d || (actor.role !== "admin" && (!deleted || !d.savedBy || d.savedBy.trim().toLowerCase() !== actor.email.trim().toLowerCase())))) return;
+    const now = new Date().toISOString();
+    for (const record of records) {
+      if (!record) continue;
+      record.deletedAt = deleted ? now : undefined;
+      record.deletedBy = deleted ? actor.email : undefined;
+    }
+    changed = true;
+  });
+  return changed;
 }
 
 export async function upsertQuestions(questions: KinQuestion[]): Promise<number> {
@@ -364,7 +400,7 @@ export async function listUsers(): Promise<WebSightUser[]> {
 }
 export async function getDraftById(draftId: string): Promise<KinDraft | null> {
   const store = await readStore();
-  return store.drafts.find(d => d.id === draftId) ?? null;
+  return store.drafts.find(d => d.id === draftId && !d.deletedAt) ?? null;
 }
 export async function saveDraftBody(questionId: string, body: string, savedBy?: string): Promise<KinDraft | null> {
   if (!body.trim() || body.length > 20000) throw new Error("answer required (maximum 20000 characters)");
@@ -372,8 +408,9 @@ export async function saveDraftBody(questionId: string, body: string, savedBy?: 
   await updateStore(store => {
     const question = store.questions.find(q => q.id === questionId);
     if (!question) return;
-    saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString(), savedBy };
-    store.drafts.unshift(saved);
+    const owner = savedBy?.trim().toLowerCase();
+    saved = owner ? store.drafts.find(d => !d.deletedAt && d.questionId === questionId && d.savedBy?.trim().toLowerCase() === owner && d.draftBody === body.trim()) ?? null : null;
+    if (!saved) { saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString(), savedBy: owner }; store.drafts.unshift(saved); }
     if (question.status !== "manual_posted") question.status = "drafted";
   });
   return saved;

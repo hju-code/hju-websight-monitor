@@ -523,6 +523,17 @@ input, textarea, select { min-height: 44px; }
 .password-toggle { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius); background: transparent; color: var(--text-secondary); cursor: pointer; }
 .password-toggle:hover { color: var(--accent); }
 .password-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; }
+.history-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0; }
+.history-toolbar label { font-weight: 700; }
+.history-toolbar input[type="search"] { flex: 1 1 240px; min-width: 150px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.history-toolbar select { padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; }
+.history-table { min-width: 850px; table-layout: fixed; border: 1px solid var(--border); }
+.history-table th, .history-table td { padding: 9px 10px; border: 1px solid var(--border); }
+.history-table th:first-child { width: 44px; }.history-table th:nth-child(2) { width: 155px; }.history-table th:nth-child(3) { width: 175px; }.history-table th:nth-child(5) { width: 170px; }.history-table th:last-child { width: 85px; }
+.history-sheet input[type="checkbox"] { min-height: 0; width: 17px; height: 17px; accent-color: var(--accent); }
+.history-title, .history-owner { overflow-wrap: anywhere; }.history-date { font-size: .85rem; }
+.history-body summary { cursor: pointer; overflow-wrap: anywhere; }.history-body p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
 :focus-visible { outline: 3px solid #007eae; outline-offset: 3px; }
 .review-pane { border-radius: 14px; }
 @media (max-width: 720px) { .header-inner { gap: 14px; flex-wrap: wrap; padding: 14px 16px; } .header-inner nav { order: 3; width: 100%; gap: 20px; padding-top: 5px; } .account-nav { gap: 10px; font-size: .82rem; } .main-content { padding: 28px 16px 48px; } .panel { padding: 20px; } }

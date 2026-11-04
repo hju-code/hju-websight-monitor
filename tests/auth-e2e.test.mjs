@@ -59,11 +59,22 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     assert.equal((await patch(cookie, true)).status, 200);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.ok(questions.length >= 2);
     res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
-    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200); const ownId = (await res.json()).draft.id;
     res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
     res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const historyHtml = await res.text(); assert.match(historyHtml, /답변입니다/); assert.match(historyHtml, /두 번째 기록입니다/);
     res = await fetch(base + "/review/other-real-question", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); assert.doesNotMatch(await res.text(), /두 번째 기록입니다/);
-    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question" }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "관리자 답변" }, cookie); const adminId = (await res.json()).draft.id;
+    res = await post("/api/kin/history", { action: "delete", ids: [ownId, adminId] }, userCookie); assert.equal(res.status, 404);
+    res = await post("/api/kin/history", { action: "delete", ids: [ownId] }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/history", { action: "restore", ids: [ownId] }, userCookie); assert.equal(res.status, 404);
+    res = await post("/api/kin/history", { action: "restore", ids: [ownId] }, cookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/history", { action: "delete", ids: [adminId] }, cookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question" }, userCookie); assert.equal(res.status, 400);
+    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
+    const savedState = await db.query("SELECT data FROM websight.app_state WHERE id=1");
+    const sameAnswers = savedState.rows[0].data.drafts.filter(d => d.questionId === "other-real-question" && d.draftBody === "두 번째 기록입니다." && d.savedBy === "user@example.org");
+    assert.equal(sameAnswers.length, 1); assert.ok(sameAnswers[0].createdAt);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === "other-real-question").status, "manual_posted");
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
   } finally { if (child) child.kill(); if (db) await db.end(); try { await pg.stop(); } catch {} if (resolve(dir).startsWith(resolve(tmpdir()) + sep)) await rm(dir, { recursive: true, force: true }); }

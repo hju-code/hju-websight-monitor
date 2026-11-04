@@ -65,6 +65,8 @@ export interface KinDraft {
   reviewedAt?: string;
   reviewerNote?: string;
   savedBy?: string;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface DraftGenerateRequest {
