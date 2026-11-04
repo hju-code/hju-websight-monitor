@@ -19,7 +19,7 @@ export default async function AdminKinListPage() {
 
       <section className="panel">
         <h2>답변 확인이 필요한 질문</h2>
-        <p className="muted">답변 확인으로 표시한 질문은 제외됩니다. <Link href="/review/history">답변 기록 보기</Link></p>
+        <p className="muted">검색어별로 답변 확인 표시가 없는 질문을 최대 30건 찾습니다. 실제 답변 여부는 네이버 원문에서 확인해 주세요. <Link href="/review/history">답변 기록 보기</Link></p>
         <KinDetectPanel latestQuestionId={items[0]?.id} />
         <table>
           <thead>

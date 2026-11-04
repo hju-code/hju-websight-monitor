@@ -3,7 +3,8 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { requireRole } from "../../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { NaverKinDetector, hitsToKinQuestions } from "../../../../collectors/naver-kin";
+import { NaverKinDetector } from "../../../../collectors/naver-kin";
+import { collectUnconfirmedQuestions } from "../../../../collectors/kin-detection-pages";
 
 import {
   listQuestions,
@@ -60,21 +61,20 @@ export async function POST(req: NextRequest) {
 
   if (hasKeys) {
     mode = "live";
-    for (const kw of (await listKeywordsFromStore()).filter(k => k.is_active)) {
-      attempts++;
-      const result = await detector.collect({
-        keyword: kw.phrase,
+    const keywords = (await listKeywordsFromStore()).filter(k => k.is_active).map(k => k.phrase);
+    const result = await collectUnconfirmedQuestions(keywords, await listQuestions(), (keyword, start, size) =>
+      detector.collect({
+        keyword,
         engine: "naver",
         tab: "kin",
         device: "desktop",
-        scanDepth: 30,
+        scanDepth: size,
+        start,
         retainRaw: "none",
-      });
-      if (result.ok) {
-        detected.push(...hitsToKinQuestions(result.hits).map(q => ({ ...q, matchedKeywords: [kw.phrase] })));
-        result.hits.length = 0;
-      } else failures++;
-    }
+      }));
+    detected = result.questions;
+    failures = result.failures;
+    attempts = result.attempts;
   } else {
     if (process.env.NODE_ENV === "production") return NextResponse.json({ ok: false, error: "네이버 API 설정이 필요합니다." }, { status: 503 });
     attempts = 1;

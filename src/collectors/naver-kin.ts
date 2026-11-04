@@ -71,6 +71,7 @@ export class NaverKinDetector implements Collector {
     const url = new URL(naverSearchUrl("kin"));
     url.searchParams.set("query", req.keyword);
     url.searchParams.set("display", String(display));
+    url.searchParams.set("start", String(Math.min(Math.max(req.start ?? 1, 1), 1000)));
     url.searchParams.set("sort", "date");
 
     const fetchedAt = new Date().toISOString();
@@ -118,7 +119,7 @@ export class NaverKinDetector implements Collector {
       return {
         ok: true,
         hits,
-        scanned: hits.length,
+        scanned: (body.items ?? []).length,
         status: "ok",
         meta: {
           requestCount: 1,

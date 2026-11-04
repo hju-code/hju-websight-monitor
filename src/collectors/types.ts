@@ -12,6 +12,7 @@ export interface CollectRequest {
   tab: Tab;
   device?: Device;
   scanDepth: number; // approved default 100
+  start?: number;
   retainRaw?: RetainRaw;
 }
 
