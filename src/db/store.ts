@@ -79,7 +79,7 @@ export async function addKeyword(phrase: string) {
   const trimmed = phrase.trim();
   if (!trimmed) throw new Error("phrase required");
   if (resolveDatabaseUrl()) {
-    const result = await getPool().query("INSERT INTO keywords (phrase,is_brand,is_active,match_mode) VALUES ($1,false,true,'domain_or_name') RETURNING *", [trimmed]);
+    const result = await getPool().query("INSERT INTO websight.keywords (phrase,is_brand,is_active,match_mode) VALUES ($1,false,true,'domain_or_name') RETURNING *", [trimmed]);
     return result.rows[0];
   }
   const data = await updateStore((store) => {
