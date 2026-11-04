@@ -23,7 +23,7 @@ test("school materials are indexed and retrieved for an independently supplied t
   };
   try {
     const indexed = await prepareKnowledge("입학 안내", "공식 입학 안내 자료", []);
-    const result = await draftFromKnowledge("지원 자격", [{ title: "입학 안내", summary: indexed.summary, embedding: indexed.embedding }]);
+    const result = await draftFromKnowledge("지원 자격", [{ title: "입학 안내", summary: indexed.summary, embedding: indexed.embedding, kind: "admission" }]);
     assert.equal(result.answer, "학교 자료에 기반한 내용");
     assert.deepEqual(result.sources, ["입학 안내"]);
     assert.equal(requests.length, 4);

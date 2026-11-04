@@ -29,6 +29,7 @@ export interface KnowledgeEntry {
   images?: { type: string; data: string }[];
   sections?: { page: number; text: string; embedding: number[] }[];
   sourceFileName?: string;
+  departmentName?: string;
 }
 
 export type KinDetectStatus = "new" | "drafted" | "approved" | "dismissed" | "manual_posted";

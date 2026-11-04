@@ -10,6 +10,19 @@ export function KnowledgeForm() {
   const [busy, setBusy] = useState(false);
   const [pdfMsg, setPdfMsg] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [departmentMsg, setDepartmentMsg] = useState<string | null>(null);
+  const [departmentBusy, setDepartmentBusy] = useState(false);
+
+  async function saveDepartment(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setDepartmentBusy(true); setDepartmentMsg(null);
+    const form = e.currentTarget; const data = new FormData(form); data.set("category", "department");
+    try {
+      const res = await fetch("/api/knowledge", { method: "POST", body: data });
+      const result = await res.json();
+      if (!res.ok) { setDepartmentMsg(result.error || "학과 정보를 저장하지 못했습니다."); return; }
+      setDepartmentMsg("학과 정보를 저장했습니다."); form.reset(); router.refresh();
+    } catch { setDepartmentMsg("서버에 연결하지 못했습니다."); } finally { setDepartmentBusy(false); }
+  }
 
   async function uploadPdf(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setPdfBusy(true); setPdfMsg(null);
@@ -54,13 +67,21 @@ export function KnowledgeForm() {
       <button className="btn" disabled={pdfBusy}>{pdfBusy ? "PDF 분석 중…" : "PDF 등록 및 검색 준비"}</button>
       {pdfMsg && <p role="status">{pdfMsg}</p>}
     </form>
+    <section className="knowledge-entry-form"><h3>학과 정보 직접 등록</h3><p className="muted">학과별 소개, 교육과정, 진로 등 학교 자료를 입력하고 필요한 사진을 첨부하세요. 같은 학과에 여러 자료를 등록할 수 있습니다.</p>
+      <form className="admin-form" onSubmit={saveDepartment}>
+        <div className="form-row"><label htmlFor="department-name">학과명</label><input id="department-name" name="departmentName" placeholder="예: 간호학과" maxLength={100} required /></div>
+        <div className="form-row"><label htmlFor="department-title">자료 제목</label><input id="department-title" name="title" placeholder="예: 교육과정과 진로" maxLength={200} required /></div>
+        <div className="form-row"><label htmlFor="department-body">학과 정보</label><textarea id="department-body" name="body" placeholder="확인된 학과 정보를 입력해 주세요." maxLength={20000} required /></div>
+        <div className="form-row"><label htmlFor="department-images">사진 첨부</label><input id="department-images" name="images" type="file" accept="image/jpeg,image/png" multiple /><span className="muted">JPG 또는 PNG 최대 2장, 각 750KB. 입력 자료와 사진은 GPT로 전달해 정리합니다.</span></div>
+        <button className="btn" disabled={departmentBusy}>{departmentBusy ? "저장 중…" : "학과 정보 저장"}</button>{departmentMsg && <p role="status">{departmentMsg}</p>}
+      </form>
+    </section>
     <details><summary>직접 입력 또는 사진으로 등록</summary>
     <form className="admin-form" onSubmit={onSubmit}>
       <div className="form-grid">
         <div className="form-row">
           <label htmlFor="category">구분</label>
           <select id="category" name="category" defaultValue="admission">
-            <option value="department">학과</option>
             <option value="admission">입시</option>
             <option value="tuition">등록금·장학</option>
             <option value="campus">캠퍼스·생활</option>

@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
   let title = "";
   let body = "";
   let revisionLabel = "";
+  let departmentName = "";
   const images: { type: string; data: string }[] = [];
 
   if (contentType.includes("application/json")) {
@@ -48,17 +49,20 @@ export async function POST(req: NextRequest) {
       body?: string;
       revisionLabel?: string;
       revision?: string;
+      departmentName?: string;
     };
     category = typeof json.category === "string" ? json.category : "other";
     title = typeof json.title === "string" ? json.title : "";
     body = typeof json.body === "string" ? json.body : "";
     revisionLabel = typeof json.revisionLabel === "string" ? json.revisionLabel : typeof json.revision === "string" ? json.revision : "";
+    departmentName = typeof json.departmentName === "string" ? json.departmentName.trim() : "";
   } else {
     const fd = await req.formData();
     category = String(fd.get("category") ?? "other") as KnowledgeCategory;
     title = String(fd.get("title") ?? "");
     body = String(fd.get("body") ?? "");
     revisionLabel = String(fd.get("revision") ?? fd.get("revisionLabel") ?? "");
+    departmentName = String(fd.get("departmentName") ?? "").trim();
     const files = fd.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
     if (files.length > 2 || files.some(f => f.size > 750 * 1024)) return NextResponse.json({ ok: false, error: "사진은 최대 2장, 각 750KB까지 첨부할 수 있습니다." }, { status: 400 });
     for (const file of files) {
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (title.length > 200 || body.length > 20000 || revisionLabel.length > 100 || !["department", "admission", "tuition", "campus", "other"].includes(category)) return NextResponse.json({ ok: false, error: "입력 내용이 너무 길거나 구분이 올바르지 않습니다." }, { status: 400 });
+  if (category === "department" && (!departmentName || departmentName.length > 100)) return NextResponse.json({ ok: false, error: "학과명을 입력해 주세요." }, { status: 400 });
 
   let prepared;
   try { prepared = await prepareKnowledge(title, body, images); }
@@ -88,6 +93,7 @@ export async function POST(req: NextRequest) {
     title,
     body,
     revisionLabel: revisionLabel || undefined,
+    departmentName: category === "department" ? departmentName : undefined,
     ...prepared,
     images,
   });

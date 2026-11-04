@@ -31,6 +31,7 @@ export default async function AdminKnowledgePage() {
               <h3>
                 {k.title} <span className="badge">{k.category}</span>
               </h3>
+              {k.departmentName && <p className="muted">학과: {k.departmentName}</p>}
               <p className="muted" style={{ marginTop: 0 }}>
                 {k.revisionLabel ?? "—"} · 갱신{" "}
                 {new Date(k.updatedAt).toLocaleDateString("ko-KR")}

@@ -5,6 +5,7 @@ import { KinReviewSplit } from "../../../../components/KinReviewSplit";
 import {
   getDraftForQuestion,
   getQuestion,
+  listKnowledge,
 } from "../../../../db/store";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,13 @@ export default async function AdminKinDetailPage({ params }: Props) {
     );
   }
   const draft = await getDraftForQuestion(id);
+  const departments = [...new Set((await listKnowledge()).filter(k => k.isActive && k.category === "department" && k.departmentName && k.embedding?.length).map(k => k.departmentName!))].sort((a, b) => a.localeCompare(b, "ko"));
   return (
     <>
       <p className="page-lead">
         관리자 검토 — 혜전대학교 지식iN. <strong>자동 게시 금지.</strong>
       </p>
-      <KinReviewSplit question={question} draft={draft} />
+      <KinReviewSplit question={question} draft={draft} departments={departments} />
     </>
   );
 }
