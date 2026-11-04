@@ -1,6 +1,6 @@
 import { isSafeMutation } from "../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthService, getCurrentUser, initializeAdminIfNeeded, SESSION_COOKIE, sessionCookieOptions } from "../../../auth/session";
+import { getAuthService, getCurrentSession, initializeAdminIfNeeded, SESSION_COOKIE, sessionCookieOptions } from "../../../auth/session";
 
 export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
@@ -22,7 +22,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "로그인 서비스를 사용할 수 없습니다." }, { status: 503 });
   }
 }
-export async function GET() { return NextResponse.json({ authenticated: Boolean(await getCurrentUser()), user: await getCurrentUser() }); }
+export async function GET() { const session = await getCurrentSession(); return NextResponse.json({ authenticated: !!session, user: session?.user ?? null, expiresAt: session?.expiresAt ?? null }); }
+export async function PATCH(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const expiresAt = token ? await getAuthService().renewSession(token) : null;
+  if (!expiresAt || !token) return NextResponse.json({ error: "로그인 시간이 만료되었습니다. 다시 로그인해 주세요." }, { status: 401 });
+  const response = NextResponse.json({ ok: true, expiresAt });
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+  return response;
+}
 export async function DELETE(req: NextRequest) {
   if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const token = req.cookies.get(SESSION_COOKIE)?.value;

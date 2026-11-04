@@ -5,7 +5,7 @@ import { database } from "../db/database";
 import type { WebSightRole, WebSightUser } from "./types";
 
 export const SESSION_COOKIE = "websight_session";
-const SESSION_DAYS = 7;
+const SESSION_SECONDS = 3600;
 let service: AuthService | null = null;
 export function getAuthService(): AuthService {
   if (service) return service;
@@ -22,15 +22,18 @@ export async function initializeAdminIfNeeded(): Promise<void> {
   await getAuthService().bootstrap(email, password);
 }
 export async function getCurrentUser(): Promise<WebSightUser | null> {
+  return (await getCurrentSession())?.user ?? null;
+}
+export async function getCurrentSession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return getAuthService().resolve(token);
+  return getAuthService().resolveSession(token);
 }
 export async function requireRole(roles: WebSightRole[]): Promise<WebSightUser | null> {
   const user = await getCurrentUser();
   return user && !user.mustChangePassword && roles.includes(user.role) ? user : null;
 }
-export function sessionCookieOptions(maxAgeSec = SESSION_DAYS * 86400) {
+export function sessionCookieOptions(maxAgeSec = SESSION_SECONDS) {
   return { httpOnly: true, sameSite: "lax" as const, path: "/", maxAge: maxAgeSec, secure: process.env.NODE_ENV === "production" };
 }

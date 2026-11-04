@@ -4,6 +4,22 @@ import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { AuthService } from "../src/auth/password-service";
 
+test("sessions expire after one hour and can be refreshed only while active", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(await readFile("db/005_password_auth.sql", "utf8"));
+    const auth = new AuthService({ query: async (sql, args) => db.query(sql, args), transaction: async (fn) => db.transaction(async (tx) => fn({ query: async (sql, args) => tx.query(sql, args) })) });
+    await auth.createUser("refresh@example.org", "initial-password-42");
+    const login = await auth.login("refresh@example.org", "initial-password-42"); assert.ok(login);
+    const session = await auth.resolveSession(login.token); assert.ok(session);
+    assert.ok(new Date(session.expiresAt).getTime() - Date.now() <= 3600000);
+    const renewed = await auth.renewSession(login.token); assert.ok(renewed);
+    await db.query("UPDATE websight.password_sessions SET created_at=now()-interval '2 hours', expires_at=now()+interval '6 days'");
+    assert.equal(await auth.resolve(login.token), null);
+    assert.equal(await auth.renewSession(login.token), null);
+  } finally { await db.close(); }
+});
+
 test("bootstrap is one-time; changed passwords revoke sessions", async () => {
   const db = new PGlite();
   try {

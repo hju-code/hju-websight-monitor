@@ -26,14 +26,13 @@ export default async function PublicStatsPage() {
               <th>순위</th>
               <th>검색결과 건수</th>
               <th>상태</th>
-              <th>도메인</th>
               <th>수집 시각</th>
             </tr>
           </thead>
           <tbody>
             {summary.rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="muted">
+                <td colSpan={6} className="muted">
                   저장된 검색 결과가 없습니다. 관리자가 수집을 실행하면 여기에 표시됩니다.
                 </td>
               </tr>
@@ -79,7 +78,6 @@ export default async function PublicStatsPage() {
                       </>
                     ) : null}
                   </td>
-                  <td className="muted">{r.matchedDomain ?? "—"}</td>
                   <td className="muted">{new Date(r.collectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</td>
                 </tr>
               ))

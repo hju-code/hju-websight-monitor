@@ -37,15 +37,24 @@ export class AuthService {
       }
       await tx.query("UPDATE websight.accounts SET failed_attempts=0, locked_until=NULL WHERE id=$1", [row.id]);
       const token = randomBytes(32).toString("hex");
-      await tx.query("INSERT INTO websight.password_sessions (token_hash,account_id,expires_at) VALUES ($1,$2,now()+interval '7 days')", [digest(token), row.id]);
+      await tx.query("INSERT INTO websight.password_sessions (token_hash,account_id,expires_at) VALUES ($1,$2,now()+interval '1 hour')", [digest(token), row.id]);
       return { token, user: publicAccount(row) };
     });
   }
   async resolve(token: string): Promise<Account | null> {
+    return (await this.resolveSession(token))?.user ?? null;
+  }
+  async resolveSession(token: string): Promise<{ user: Account; expiresAt: string } | null> {
     if (!/^[a-f0-9]{64}$/.test(token)) return null;
-    const result = await this.db.query("SELECT a.* FROM websight.password_sessions s JOIN websight.accounts a ON a.id=s.account_id WHERE s.token_hash=$1 AND s.expires_at>now() AND a.is_active=true", [digest(token)]);
-    const row = result.rows[0] as AccountRow | undefined;
-    return row ? publicAccount(row) : null;
+    const result = await this.db.query("SELECT a.*, LEAST(s.expires_at, s.created_at + interval '1 hour') AS session_expires_at FROM websight.password_sessions s JOIN websight.accounts a ON a.id=s.account_id WHERE s.token_hash=$1 AND s.expires_at>now() AND s.created_at + interval '1 hour'>now() AND a.is_active=true", [digest(token)]);
+    const row = result.rows[0] as (AccountRow & { session_expires_at: Date | string }) | undefined;
+    return row ? { user: publicAccount(row), expiresAt: new Date(row.session_expires_at).toISOString() } : null;
+  }
+  async renewSession(token: string): Promise<string | null> {
+    if (!/^[a-f0-9]{64}$/.test(token)) return null;
+    const result = await this.db.query("UPDATE websight.password_sessions s SET created_at=now(), expires_at=now()+interval '1 hour' FROM websight.accounts a WHERE s.account_id=a.id AND a.is_active=true AND s.token_hash=$1 AND s.expires_at>now() AND s.created_at + interval '1 hour'>now() RETURNING s.expires_at", [digest(token)]);
+    const row = result.rows[0] as { expires_at: Date | string } | undefined;
+    return row ? new Date(row.expires_at).toISOString() : null;
   }
   async createUser(email: string, password: string, displayName?: string): Promise<Account> {
     const normalized = email.trim().toLowerCase();
