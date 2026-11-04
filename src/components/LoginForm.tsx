@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PasswordInput } from "./PasswordInput";
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
@@ -19,7 +19,7 @@ export function LoginForm() {
   }
   return <form className="admin-form" onSubmit={submit}>
     <div className="form-row"><label htmlFor="email">이메일</label><input id="email" name="email" type="email" autoComplete="username" required /></div>
-    <div className="form-row"><label htmlFor="password">비밀번호</label><div className="password-field"><input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required /><button type="button" className="password-toggle" aria-controls="password" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "숨기기" : "보기"}</button></div></div>
+    <div className="form-row"><label htmlFor="password">비밀번호</label><PasswordInput id="password" name="password" autoComplete="current-password" required /></div>
     <button className="btn" disabled={busy}>{busy ? "로그인 중…" : "로그인"}</button>
     {error && <p role="alert">{error}</p>}
   </form>;

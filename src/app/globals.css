@@ -514,10 +514,11 @@ th, td { padding: 14px 12px; border-bottom-color: #e5ecee; }
 tbody tr:hover { background: #f7faf9; }
 .btn { min-height: 44px; border-radius: 8px; font-weight: 650; }
 input, textarea, select { min-height: 44px; }
-.password-field { display: flex; gap: 0.5rem; align-items: stretch; }
-.password-field input { flex: 1; min-width: 0; }
-.password-toggle { min-height: 44px; padding: 0 0.9rem; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--accent); font: inherit; cursor: pointer; }
-.password-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.password-field { position: relative; }
+.admin-form .password-field input { width: 100%; padding-right: 3.5rem; }
+.password-toggle { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.password-toggle:hover { color: var(--accent); }
+.password-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; }
 :focus-visible { outline: 3px solid #007eae; outline-offset: 3px; }
 .review-pane { border-radius: 14px; }
 @media (max-width: 720px) { .header-inner { gap: 14px; flex-wrap: wrap; padding: 14px 16px; } .header-inner nav { order: 3; width: 100%; gap: 20px; padding-top: 5px; } .account-nav { gap: 10px; font-size: .82rem; } .main-content { padding: 28px 16px 48px; } .panel { padding: 20px; } }
