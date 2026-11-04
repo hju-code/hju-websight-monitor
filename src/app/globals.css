@@ -498,11 +498,10 @@ html, body { background: var(--bg); color: var(--text); }
 .site-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .site-header { background: #fff; border-bottom: 1px solid var(--border); }
 .header-inner { max-width: var(--max); min-height: 82px; margin: auto; padding: 12px 24px; display: flex; align-items: center; gap: 44px; }
-.brand-lockup { display: flex; align-items: center; gap: 12px; color: var(--text); white-space: nowrap; text-decoration: none; }
+.brand-lockup { display: flex; align-items: center; gap: 10px; color: var(--text); white-space: nowrap; text-decoration: none; }
 .brand-lockup:hover { text-decoration: none; }
-.brand-lockup strong { display: block; font-size: 1rem; line-height: 1.25; }
-.brand-lockup small { display: block; color: var(--muted); font-size: .79rem; letter-spacing: .04em; }
-.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px 3px 12px 3px; color: white; background: var(--accent); font-weight: 800; font-size: 1.4rem; }
+.university-logo { display: block; width: 180px; height: auto; }
+.brand-service { color: var(--muted); font-size: .79rem; font-weight: 600; border-left: 1px solid var(--border); padding-left: 10px; }
 .header-inner nav { display: flex; flex-wrap: wrap; gap: 24px; font-weight: 650; }
 .header-inner nav a { color: var(--text-secondary); }
 .account-nav { margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: .9rem; white-space: nowrap; }
