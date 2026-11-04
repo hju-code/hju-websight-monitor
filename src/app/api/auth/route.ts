@@ -15,7 +15,12 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({ ok: true, user: login.user, redirect: login.user.mustChangePassword ? "/password" : login.user.role === "admin" ? "/admin" : "/review" });
     response.cookies.set(SESSION_COOKIE, login.token, sessionCookieOptions());
     return response;
-  } catch { return NextResponse.json({ ok: false, error: "로그인 서비스를 사용할 수 없습니다." }, { status: 503 }); }
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+    const reason = error instanceof Error && error.message === "Invalid initial administrator credentials" ? "invalid_initial_credentials" : error instanceof Error && error.message === "Initial administrator credentials are not configured" ? "missing_initial_credentials" : "authentication_service_error";
+    console.error("Login service failure", { reason, code });
+    return NextResponse.json({ ok: false, error: "로그인 서비스를 사용할 수 없습니다." }, { status: 503 });
+  }
 }
 export async function GET() { return NextResponse.json({ authenticated: Boolean(await getCurrentUser()), user: await getCurrentUser() }); }
 export async function DELETE(req: NextRequest) {
