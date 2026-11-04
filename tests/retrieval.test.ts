@@ -13,4 +13,6 @@ test("department answers require matching department and admission materials", (
   assert.throws(() => selectAnswerKnowledge([1, 0], entries, "없는 학과"), /학과 자료/);
   assert.throws(() => selectAnswerKnowledge([1, 0], entries.slice(1), "간호학과"), /모집요강/);
   assert.deepEqual(selectAnswerKnowledge([1, 0], entries, "").map(x => x.title), ["모집요강"]);
+  assert.deepEqual(selectAnswerKnowledge([1, 0], entries, "간호학과", "department").map(x => x.title), ["간호학과"]);
+  assert.deepEqual(selectAnswerKnowledge([1, 0], entries, "간호학과", "university").map(x => x.title), ["모집요강"]);
 });

@@ -1,12 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiConfig, prepareKnowledge, draftFromKnowledge } from "../src/kin/ai";
+import { aiConfig, detectDepartment, prepareKnowledge, draftFromKnowledge } from "../src/kin/ai";
 
 test("missing API key fails clearly", () => {
   const oldKey = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
   try { assert.throws(() => aiConfig(), /OPENAI_API_KEY/); }
   finally { if (oldKey !== undefined) process.env.OPENAI_API_KEY = oldKey; }
+});
+
+test("identifies only registered departments from a user-provided question", async () => {
+  const original = globalThis.fetch; const oldKey = process.env.OPENAI_API_KEY; process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({ output: [{ content: [{ type: "output_text", text: '{"department":"간호학과","needsDepartment":true}' }] }] }), { status: 200 });
+  try {
+    assert.deepEqual(await detectDepartment("간호과가 궁금합니다", ["간호학과"]), { department: "간호학과", needsDepartment: true });
+    assert.deepEqual(await detectDepartment("간호과가 궁금합니다", ["조리학과"]), { department: "", needsDepartment: true });
+  } finally { globalThis.fetch = original; if (oldKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = oldKey; }
 });
 
 test("school materials are indexed and retrieved for an independently supplied topic", async () => {
