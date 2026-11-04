@@ -1,5 +1,6 @@
 import { UniversityComparison } from "./UniversityComparison";
 import { getPublicStats } from "../../db/live-stats";
+import { rankKeywordsByCount } from "../../stats/keyword-ranking";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -9,21 +10,23 @@ export default async function PublicStatsPage() {
   const summary = await getPublicStats().catch(() => null);
   if (!summary) return <><div className="dashboard-intro"><p>혜전대학교</p><h1>검색 현황</h1><span>충청권 전문대학의 검색 관심도를 비교하세요.</span></div><section className="panel"><h2>검색 순위 요약</h2><p>저장된 검색 결과를 불러올 수 없습니다. 잠시 후 다시 확인해 주세요.</p></section><UniversityComparison /></>;
   const isLive = summary.mode === "fresh_live" || summary.mode === "stored_live";
+  const rankedRows = rankKeywordsByCount(summary.rows);
 
   return (
     <>
       <div className="dashboard-intro"><p>혜전대학교</p><h1>검색 현황</h1><span>우리 대학의 검색 결과와 충청권 전문대학의 관심도를 살펴보세요.</span></div>
 
       <section className="panel">
-        <h2>검색 순위 요약</h2>
+        <h2>키워드별 검색결과 비교</h2>
         <p className="muted">저장된 수집 결과 {summary.totalSnapshots.toLocaleString("ko-KR")}건{summary.sampleCount > 0 && !isLive ? " · 예시 데이터 포함" : ""}</p>
+        <p className="muted">같은 검색 사이트와 유형의 키워드를 검색결과 건수 순으로 비교합니다. 결과가 서로 겹칠 수 있으며 실제 검색 횟수나 인기도 순위는 아닙니다.</p>
         {summary.note ? <p className="muted">{summary.note}</p> : null}
         <table>
           <thead>
             <tr>
               <th>키워드</th>
               <th>사이트</th>
-              <th>순위</th>
+              <th>결과 건수 순위</th>
               <th>검색결과 건수</th>
               <th>상태</th>
               <th>수집 시각</th>
@@ -37,15 +40,15 @@ export default async function PublicStatsPage() {
                 </td>
               </tr>
             ) : (
-              summary.rows.map((r) => (
+              rankedRows.map((r) => (
                 <tr key={`${r.phrase}-${r.engine}-${r.tab}-${r.id}`}>
                   <td>{r.phrase}</td>
                   <td>
                     {r.engine} / {r.tab}
                   </td>
                   <td>
-                    {r.schoolRank != null ? (
-                      <strong>{r.schoolRank}</strong>
+                    {r.keywordRank != null ? (
+                      <strong>{r.keywordRank}위</strong>
                     ) : (
                       <span className="muted">—</span>
                     )}
@@ -92,9 +95,7 @@ export default async function PublicStatsPage() {
         <h2>안내</h2>
         <ul className="checklist">
           <li>
-            원문(title/snippet)은 저장하지 않으며 파생 <strong>순위</strong>와
-            네이버 webkr <code>total</code> 기반 <strong>검색결과 건수</strong>
-            만 표시합니다. 검색 횟수나 방문 수가 아닙니다.
+            키워드 순위는 네이버 웹문서 검색결과 건수를 비교한 값입니다. 검색 횟수나 방문 수가 아닙니다.
           </li>
           <li>통계는 관리자가 수집한 결과를 표시합니다.</li>
           <li>지식iN 답변 검토는 로그인 후 이용할 수 있습니다.</li>
