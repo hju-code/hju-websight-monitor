@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { detectionOutcome } from "../../../../collectors/detection-outcome";
+import { isSafeMutation } from "../../../../auth/csrf";
+import { requireRole } from "../../../../auth/session";
+import { NextRequest, NextResponse } from "next/server";
+import { canAccessQuestion } from "../../../../auth/scope";
 import { NaverKinDetector, hitsToKinQuestions } from "../../../../collectors/naver-kin";
-import { SEED_KEYWORDS } from "../../../../config/seeds";
+
 import {
   listQuestions,
+  listAssignees,
+  listKeywordsFromStore,
   upsertQuestions,
 } from "../../../../db/store";
 import type { KinQuestion } from "../../../../kin/types";
@@ -29,18 +35,24 @@ function stubQuestions(): KinQuestion[] {
  * List / trigger Kin detection. Never publishes answers to Naver.
  */
 export async function GET() {
-  const questions = await listQuestions();
+  const user = await requireRole(["admin", "assignee"]);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const assignments = await listAssignees();
+  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments));
   return NextResponse.json({
     autoPostEnabled: false,
     questions,
-    note: "Live detect via POST when NAVER_* keys set; otherwise stub append",
+    note: "배정된 질문을 표시합니다.",
   });
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const detector = new NaverKinDetector();
   let detected: KinQuestion[] = [];
   let mode: "live" | "stub" = "stub";
+  let failures = 0; let attempts = 0;
 
   const hasKeys =
     Boolean(process.env.NAVER_CLIENT_ID) &&
@@ -48,7 +60,8 @@ export async function POST() {
 
   if (hasKeys) {
     mode = "live";
-    for (const kw of SEED_KEYWORDS) {
+    for (const kw of (await listKeywordsFromStore()).filter(k => k.is_active)) {
+      attempts++;
       const result = await detector.collect({
         keyword: kw.phrase,
         engine: "naver",
@@ -58,14 +71,18 @@ export async function POST() {
         retainRaw: "none",
       });
       if (result.ok) {
-        detected.push(...hitsToKinQuestions(result.hits));
+        detected.push(...hitsToKinQuestions(result.hits).map(q => ({ ...q, matchedKeywords: [kw.phrase] })));
         result.hits.length = 0;
-      }
+      } else failures++;
     }
   } else {
-    detected = stubQuestions();
+    if (process.env.NODE_ENV === "production") return NextResponse.json({ ok: false, error: "네이버 API 설정이 필요합니다." }, { status: 503 });
+    attempts = 1;
+    detected = stubQuestions().map(q => ({ ...q, matchedKeywords: ["혜전대학교", "혜전대"] }));
   }
 
+  const outcome = detectionOutcome(failures, attempts);
+  if (!outcome.ok) return NextResponse.json({ ok: false, error: "질문을 조회하지 못했습니다. 검색 API와 활성 키워드를 확인해 주세요." }, { status: 503 });
   const added = await upsertQuestions(detected);
   const questions = await listQuestions();
 
@@ -73,6 +90,8 @@ export async function POST() {
     ok: true,
     autoPostEnabled: false,
     mode,
+    partial: outcome.partial,
+    failures,
     detected: detected.length,
     added,
     questions: questions.slice(0, 20),

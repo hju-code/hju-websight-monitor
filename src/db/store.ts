@@ -3,6 +3,9 @@
  * for rank/keyword reads that already exist in repository.ts.
  */
 import { randomBytes } from "crypto";
+import { resolveDatabaseUrl } from "../config/env";
+import { getPool } from "./pool";
+import { listKeywords, listRecentRanks } from "./repository";
 import type { AssignmentScope, WebSightUser } from "../auth/types";
 import { defaultEnabledPlatforms } from "../config/platforms";
 import { generateDraftFromKnowledge } from "../kin/draft";
@@ -62,11 +65,12 @@ export async function saveTosSettings(partial: {
 
 export async function getEnabledPlatforms(): Promise<string[]> {
   const s = await getSettings();
-  if (s.enabled_platforms?.length) return s.enabled_platforms;
+  if (Array.isArray(s.enabled_platforms)) return s.enabled_platforms;
   return defaultEnabledPlatforms().enabled;
 }
 
 export async function listKeywordsFromStore() {
+  if (resolveDatabaseUrl()) return await listKeywords();
   const s = await readStore();
   return s.keywords;
 }
@@ -74,6 +78,10 @@ export async function listKeywordsFromStore() {
 export async function addKeyword(phrase: string) {
   const trimmed = phrase.trim();
   if (!trimmed) throw new Error("phrase required");
+  if (resolveDatabaseUrl()) {
+    const result = await getPool().query("INSERT INTO keywords (phrase,is_brand,is_active,match_mode) VALUES ($1,false,true,'domain_or_name') RETURNING *", [trimmed]);
+    return result.rows[0];
+  }
   const data = await updateStore((store) => {
     if (store.keywords.some((k) => k.phrase === trimmed)) {
       throw new Error("keyword already exists");
@@ -94,6 +102,10 @@ export async function addKeyword(phrase: string) {
 }
 
 export async function listRanksFromStore(limit = 100): Promise<RankRecord[]> {
+  if (resolveDatabaseUrl()) {
+    const rows = await listRecentRanks(limit);
+    return rows.map((r) => ({ id: Number(r.id), runId: Number(r.run_id), phrase: r.phrase, engine: r.engine, tab: r.tab, collectedAt: new Date(r.collected_at).toISOString(), schoolRank: r.school_rank, schoolStatus: r.school_status, matchedUrl: r.matched_url, matchedDomain: r.matched_domain, resultTotal: r.result_total == null ? null : Number(r.result_total), requestCount: r.request_count, providerStatus: r.provider_status, source: "live" as const }));
+  }
   const s = await readStore();
   return [...s.ranks]
     .map((r) => ({
@@ -197,10 +209,10 @@ export async function upsertQuestions(questions: KinQuestion[]): Promise<number>
   let added = 0;
   await updateStore((store) => {
     for (const q of questions) {
-      const exists = store.questions.some(
+      const exists = store.questions.find(
         (x) => x.naverUrl === q.naverUrl || x.id === q.id,
       );
-      if (exists) continue;
+      if (exists) { exists.matchedKeywords = [...new Set([...(exists.matchedKeywords ?? []), ...(q.matchedKeywords ?? [])])]; continue; }
       store.questions.unshift(q);
       added += 1;
     }
@@ -306,4 +318,21 @@ export async function findUserByEmail(
 export async function listUsers(): Promise<WebSightUser[]> {
   const s = await readStore();
   return s.users;
+}
+export async function getDraftById(draftId: string): Promise<KinDraft | null> {
+  const store = await readStore();
+  return store.drafts.find(d => d.id === draftId) ?? null;
+}
+export async function saveDraftBody(questionId: string, body: string): Promise<KinDraft | null> {
+  if (!body.trim() || body.length > 20000) throw new Error("answer required (maximum 20000 characters)");
+  let saved: KinDraft | null = null;
+  await updateStore(store => {
+    const question = store.questions.find(q => q.id === questionId);
+    if (!question) return;
+    const existing = store.drafts.filter(d => d.questionId === questionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (existing) { existing.draftBody = body.trim(); existing.status = "pending_review"; saved = { ...existing }; }
+    else { saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString() }; store.drafts.unshift(saved); }
+    question.status = "drafted";
+  });
+  return saved;
 }

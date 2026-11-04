@@ -11,7 +11,8 @@ export function AssigneeForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const res = await fetch("/api/assignees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27,7 +28,7 @@ export function AssigneeForm() {
     setBusy(false);
     setMsg(json.ok ? "등록됨" : json.error ?? "실패");
     if (json.ok) {
-      e.currentTarget.reset();
+      form.reset();
       router.refresh();
     }
   }

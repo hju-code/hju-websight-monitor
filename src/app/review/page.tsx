@@ -1,5 +1,7 @@
-import { getCurrentUser } from "../../auth/session";
-import { listQuestions, getDraftForQuestion } from "../../db/store";
+import { requireRole } from "../../auth/session";
+import { redirect } from "next/navigation";
+import { canAccessQuestion } from "../../auth/scope";
+import { listQuestions, getDraftForQuestion, listAssignees } from "../../db/store";
 
 export const dynamic = "force-dynamic";
 
@@ -7,8 +9,10 @@ export const dynamic = "force-dynamic";
  * Assignee Kin review inbox — separate from /admin.
  */
 export default async function ReviewInboxPage() {
-  const user = await getCurrentUser();
-  const questions = await listQuestions();
+  const user = await requireRole(["admin", "assignee"]);
+  if (!user) redirect("/login");
+  const assignments = await listAssignees();
+  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments));
   const rows = await Promise.all(
     questions.map(async (q) => ({
       q,

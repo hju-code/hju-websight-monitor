@@ -1,9 +1,12 @@
+import { requireRole } from "../../../auth/session";
+import { redirect } from "next/navigation";
 import { KinDetectPanel } from "../../../components/KinDetectPanel";
 import { listQuestions } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminKinListPage() {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const items = await listQuestions();
   return (
     <>
@@ -14,7 +17,7 @@ export default async function AdminKinListPage() {
 
       <section className="panel">
         <h2>감지 · 초안</h2>
-        <KinDetectPanel />
+        <KinDetectPanel latestQuestionId={items[0]?.id} />
         <table>
           <thead>
             <tr>
@@ -28,7 +31,7 @@ export default async function AdminKinListPage() {
             {items.length === 0 ? (
               <tr>
                 <td colSpan={4} className="muted">
-                  없음 — 위 버튼으로 감지(스텁 또는 실API)
+                  질문이 없습니다. 위 버튼으로 조회해 주세요.
                 </td>
               </tr>
             ) : (

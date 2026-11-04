@@ -1,8 +1,7 @@
 import "dotenv/config";
 import { collectWeb } from "../collectors";
-import { getEnabledPlatforms } from "../db/store";
+import { getEnabledPlatforms, getSettings, listKeywordsFromStore } from "../db/store";
 import { appendRankSnapshots } from "../db/store";
-import { SEED_KEYWORDS } from "../config/seeds";
 import { matchSchool, toDerivedMeta } from "../matcher/school";
 import {
   createRun,
@@ -37,8 +36,9 @@ export async function runCollectJob(opts?: {
 }) {
   const persist = opts?.persist ?? true;
   const triggeredBy = opts?.triggeredBy ?? "manual";
-  const phrases = opts?.keywords ?? SEED_KEYWORDS.map((k) => k.phrase);
+  const phrases = opts?.keywords ?? (await listKeywordsFromStore()).filter(k => k.is_active).map(k => k.phrase);
   const enabled = await getEnabledPlatforms();
+  const settings = await getSettings();
   const engines = [
     ...new Set(
       enabled
@@ -48,23 +48,13 @@ export async function runCollectJob(opts?: {
   ];
   const skippedPlatforms = enabled.filter((id) => PLATFORM_TO_ENGINE[id] === null);
 
-  const usePg = Boolean(loadAppEnv().databaseUrl);
-  let runId: number | null = null;
-  if (persist && usePg) {
-    try {
-      runId = await createRun(triggeredBy);
-    } catch {
-      // fall through to file store
-    }
-  }
-
   const results: Array<Record<string, unknown>> = [];
   const fileRows: Parameters<typeof appendRankSnapshots>[0] = [];
   let failures = 0;
 
   if (engines.length === 0) {
     return {
-      runId,
+      runId: null,
       results: [
         {
           note: "활성 검색 웹 플랫폼 없음 — /admin/settings 에서 naver_web/daum_web 체크",
@@ -78,6 +68,17 @@ export async function runCollectJob(opts?: {
     };
   }
 
+  const usePg = Boolean(loadAppEnv().databaseUrl);
+  let runId: number | null = null;
+  if (persist && usePg) {
+    try {
+      runId = await createRun(triggeredBy);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  try {
   for (const phrase of phrases) {
     for (const engine of engines) {
       const collect = await collectWeb(engine, phrase, 100);
@@ -136,6 +137,7 @@ export async function runCollectJob(opts?: {
             requestCount: collect.meta.requestCount,
             providerStatus: collect.status,
             errorCode: collect.errorMessage ?? null,
+            snapshotTtlDays: settings.snapshot_ttl_days,
           });
         }
       } else if (persist) {
@@ -178,6 +180,10 @@ export async function runCollectJob(opts?: {
   }
 
   return { runId, results, failures, enabled, skippedPlatforms };
+  } catch (error) {
+    if (runId !== null) { try { await finishRun(runId, "failed", "collection failed"); } catch { /* Preserve the original error. */ } }
+    throw error;
+  }
 }
 
 async function main() {

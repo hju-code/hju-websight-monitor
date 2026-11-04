@@ -14,12 +14,12 @@ const TIER_META: Record<
   active: {
     title: "활성 (켜도 됨)",
     badgeClass: "ok",
-    blurb: "네이버·다음 웹, 유튜브 — 주기 수집 대상으로 켜둘 수 있습니다.",
+    blurb: "네이버와 다음 웹 검색을 수집할 수 있습니다.",
   },
   conditional: {
     title: "조건부",
     badgeClass: "warn",
-    blurb: "체크 가능하나 제한이 있습니다. 제한 문구를 확인하세요.",
+    blurb: "아직 수집이 구현되지 않았습니다.",
   },
   not_recommended: {
     title: "비권장",
@@ -50,7 +50,8 @@ function PlatformList(props: {
                 type="checkbox"
                 name={props.name}
                 value={p.id}
-                defaultChecked={props.enabled.has(p.id)}
+                defaultChecked={props.enabled.has(p.id) && ["naver_web", "daum_web"].includes(p.id)}
+                disabled={! ["naver_web", "daum_web"].includes(p.id)}
               />
               <span>{p.label}</span>
               <span className={`badge ${meta.badgeClass}`}>
@@ -84,7 +85,7 @@ export function PlatformCheckboxGroup(props: {
     <fieldset className="platform-fieldset">
       <legend>수집·노출 조회 플랫폼 (혜전대학교)</legend>
       <p className="muted" style={{ marginTop: 0 }}>
-        체크된 항목만 노출 건수 조회/주기 수집 대상입니다. 설정으로 저장됩니다.
+        선택한 검색 플랫폼만 정기적으로 수집합니다.
       </p>
 
       <PlatformList

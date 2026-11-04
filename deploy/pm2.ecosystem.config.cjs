@@ -8,7 +8,7 @@ module.exports = {
       name: "hju-websight-monitor",
       cwd: "/opt/hju/hju-websight-monitor", // UPDATE if campus path differs
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3040",
+      args: "start -H 127.0.0.1 -p 3040",
       env: {
         NODE_ENV: "production",
         PORT: "3040",

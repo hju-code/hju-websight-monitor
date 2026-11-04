@@ -1,18 +1,23 @@
+import { isSafeMutation } from "../../../auth/csrf";
+import { getAuthService, requireRole } from "../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { listAssignees, upsertAssignee } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const assignments = await listAssignees();
   return NextResponse.json({
-    source: "file",
+    source: "storage",
     assignments,
     autoPostEnabled: false,
   });
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const contentType = req.headers.get("content-type") || "";
   let keywordPhrase = "";
   let siteKey = "naver-kin";
@@ -52,6 +57,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  const target = (await getAuthService().listUsers()).find(u => u.email.toLowerCase() === assigneeEmail.trim().toLowerCase() && u.role === "assignee" && u.isActive);
+  if (!target) return NextResponse.json({ ok: false, error: "활성 사용자 계정을 먼저 등록해 주세요." }, { status: 400 });
 
   const assignment = await upsertAssignee({
     keywordPhrase: keywordPhrase.trim(),

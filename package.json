@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "dry-run": "tsx scripts/dry-run-collect.ts",
     "collect": "tsx src/jobs/collect-run.ts",
     "expire": "tsx src/jobs/expire-snapshots.ts",
-    "smoke": "bash scripts/smoke.sh"
+    "smoke": "bash scripts/smoke.sh",
+    "test": "tsx --test tests/*.test.ts",
+    "test:integration": "node --test --test-concurrency=1 tests/security.integration.mjs tests/auth-e2e.test.mjs",
+    "import-legacy": "tsx scripts/import-legacy.mts"
   },
   "dependencies": {
     "dotenv": "^18.0.9",
@@ -20,13 +23,16 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@electric-sql/pglite-socket": "^0.2.18",
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "embedded-postgres": "^18.6.0-beta.19",
     "eslint": "^9",
-    "eslint-config-next": "^15.1.0",
+    "eslint-config-next": "^16.4.4",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

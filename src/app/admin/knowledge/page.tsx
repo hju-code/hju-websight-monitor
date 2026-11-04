@@ -1,9 +1,12 @@
+import { requireRole } from "../../../auth/session";
+import { redirect } from "next/navigation";
 import { KnowledgeForm } from "../../../components/KnowledgeForm";
 import { listKnowledge } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminKnowledgePage() {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const entries = await listKnowledge();
 
   return (

@@ -1,8 +1,6 @@
-import {
-  AUTH_RECOMMENDATION_NOTE,
-  AUTH_STRATEGY_OPTIONS,
-  AUTH_STRATEGY_RECOMMENDATION,
-} from "../../../auth/types";
+import { requireRole } from "../../../auth/session";
+import { redirect } from "next/navigation";
+
 import {
   SettingsPlatformForm,
   SettingsTosForm,
@@ -12,6 +10,7 @@ import { getSettings } from "../../../db/store";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const settings = await getSettings();
   const platforms = {
     enabled: settings.enabled_platforms,
@@ -39,36 +38,7 @@ export default async function AdminSettingsPage() {
         />
       </section>
 
-      <section className="panel">
-        <h2>로그인 · 계정 전략</h2>
-        <p className="muted">{AUTH_RECOMMENDATION_NOTE}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>옵션</th>
-              <th>장점</th>
-              <th>단점</th>
-            </tr>
-          </thead>
-          <tbody>
-            {AUTH_STRATEGY_OPTIONS.map((o) => (
-              <tr key={o.id}>
-                <td>
-                  {o.label}
-                  {o.id === AUTH_STRATEGY_RECOMMENDATION ? (
-                    <>
-                      {" "}
-                      <span className="badge ok">P1 권고</span>
-                    </>
-                  ) : null}
-                </td>
-                <td className="muted">{o.pros.join(" · ")}</td>
-                <td className="muted">{o.cons.join(" · ")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <section className="panel"><h2>계정 보안</h2><p>관리자는 사용자 계정을 관리하고 비밀번호를 초기화할 수 있습니다.</p><a href="/admin/users">사용자 계정 관리</a></section>
     </>
   );
 }

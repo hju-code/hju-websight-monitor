@@ -1,3 +1,5 @@
+import { isSafeMutation } from "../../../auth/csrf";
+import { requireRole } from "../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { createKnowledge, listKnowledge } from "../../../db/store";
 import type { KnowledgeCategory } from "../../../kin/types";
@@ -5,15 +7,18 @@ import type { KnowledgeCategory } from "../../../kin/types";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const entries = await listKnowledge();
   return NextResponse.json({
-    source: "file",
+    source: "storage",
     entries,
     autoPostEnabled: false,
   });
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const contentType = req.headers.get("content-type") || "";
   let category: KnowledgeCategory = "other";
   let title = "";

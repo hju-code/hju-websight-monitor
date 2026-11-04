@@ -1,102 +1,28 @@
+import { isSafeMutation } from "../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createDevSession,
-  createMagicLink,
-  getCurrentUser,
-  isDevAuthEnabled,
-  SESSION_COOKIE,
-  sessionCookieOptions,
-} from "../../../auth/session";
-import { AUTH_STRATEGY_RECOMMENDATION } from "../../../auth/types";
+import { getAuthService, getCurrentUser, initializeAdminIfNeeded, SESSION_COOKIE, sessionCookieOptions } from "../../../auth/session";
 
 export const dynamic = "force-dynamic";
-
-async function readEmail(req: NextRequest): Promise<{
-  email: string;
-  mode?: string;
-}> {
-  const contentType = req.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    const body = (await req.json()) as { email?: string; mode?: string };
-    return { email: body.email ?? "", mode: body.mode };
-  }
-  const fd = await req.formData();
-  return {
-    email: String(fd.get("email") ?? ""),
-    mode: String(fd.get("mode") ?? "") || undefined,
-  };
-}
-
-/** Request magic link or create dev email session. */
 export async function POST(req: NextRequest) {
-  const { email, mode } = await readEmail(req);
-  if (!email || !email.includes("@")) {
-    return NextResponse.json(
-      { ok: false, error: "valid email required" },
-      { status: 400 },
-    );
-  }
-
-  if (mode === "dev_session" || mode === "dev") {
-    const result = await createDevSession(email);
-    if (!result.ok || !result.cookieValue) {
-      return NextResponse.json(
-        { ok: false, error: result.error, strategy: AUTH_STRATEGY_RECOMMENDATION },
-        { status: 403 },
-      );
-    }
-    const res = NextResponse.json({
-      ok: true,
-      strategy: AUTH_STRATEGY_RECOMMENDATION,
-      mode: "dev_session",
-      user: result.user,
-      redirect:
-        result.user?.role === "admin" ? "/admin" : "/review",
-      autoPostEnabled: false,
-    });
-    res.cookies.set(
-      SESSION_COOKIE,
-      result.cookieValue,
-      sessionCookieOptions(),
-    );
-    return res;
-  }
-
-  const link = await createMagicLink(email);
-  if (!link.ok) {
-    return NextResponse.json(
-      { ok: false, error: link.error, strategy: AUTH_STRATEGY_RECOMMENDATION },
-      { status: 403 },
-    );
-  }
-
-  return NextResponse.json({
-    ok: true,
-    strategy: AUTH_STRATEGY_RECOMMENDATION,
-    email: email.trim().toLowerCase(),
-    expiresAt: link.expiresAt,
-    magicUrl: link.magicUrl,
-    devAuth: isDevAuthEnabled(),
-    note: link.magicUrl
-      ? "개발 모드: 아래 링크로 로그인 (SMTP 미설정)"
-      : "매직링크 메일을 발송했습니다 (SMTP).",
-    autoPostEnabled: false,
-  });
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ ok: false }, { status: 415 });
+  const body = await req.json().catch(() => null) as { email?: unknown; password?: unknown; mode?: unknown } | null;
+  if (!body || typeof body.email !== "string" || typeof body.password !== "string") return NextResponse.json({ ok: false, error: "이메일과 비밀번호를 확인하세요." }, { status: 403 });
+  try {
+    await initializeAdminIfNeeded();
+    const login = await getAuthService().login(body.email, body.password);
+    if (!login) return NextResponse.json({ ok: false, error: "이메일 또는 비밀번호를 확인하세요." }, { status: 401 });
+    const response = NextResponse.json({ ok: true, user: login.user, redirect: login.user.mustChangePassword ? "/password" : login.user.role === "admin" ? "/admin" : "/review" });
+    response.cookies.set(SESSION_COOKIE, login.token, sessionCookieOptions());
+    return response;
+  } catch { return NextResponse.json({ ok: false, error: "로그인 서비스를 사용할 수 없습니다." }, { status: 503 }); }
 }
-
-export async function GET() {
-  const user = await getCurrentUser();
-  return NextResponse.json({
-    strategy: AUTH_STRATEGY_RECOMMENDATION,
-    authenticated: Boolean(user),
-    user,
-    devAuth: isDevAuthEnabled(),
-    autoPostEnabled: false,
-  });
-}
-
-export async function DELETE() {
-  const res = NextResponse.json({ ok: true, loggedOut: true });
-  res.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
-  return res;
+export async function GET() { return NextResponse.json({ authenticated: Boolean(await getCurrentUser()), user: await getCurrentUser() }); }
+export async function DELETE(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (token) await getAuthService().logout(token);
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(0));
+  return response;
 }

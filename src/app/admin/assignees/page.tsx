@@ -1,9 +1,12 @@
+import { requireRole } from "../../../auth/session";
+import { redirect } from "next/navigation";
 import { AssigneeForm } from "../../../components/AssigneeForm";
 import { listAssignees } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAssigneesPage() {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const assignments = await listAssignees();
   return (
     <>

@@ -48,9 +48,9 @@ export const PLATFORM_CATALOG: PlatformOption[] = [
     id: "youtube",
     label: "YouTube",
     kind: "social",
-    tier: "active",
-    defaultEnabled: true,
-    restrictionLabel: "활성 — Data API 확장 1순위",
+    tier: "conditional",
+    defaultEnabled: false,
+    restrictionLabel: "수집 준비 중",
     notes: "search.list + videos.list · 구현은 승인 후",
   },
   {
@@ -95,7 +95,7 @@ export const PLATFORM_EXPANSION_DOC =
   "/cursor/stores/self/docs/websight-platform-expansion.md";
 
 export const PLATFORM_CATALOG_NOTE =
-  "티어는 websight-platform-expansion.md 조사 결과 기준. 체크된 플랫폼만 혜전대학교 노출 조회/수집 대상. 자동 게시 없음.";
+  "선택한 검색 플랫폼만 수집합니다. 지식iN 답변은 자동 게시하지 않습니다.";
 
 export type EnabledPlatformsSetting = {
   enabled: string[];

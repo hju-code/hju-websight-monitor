@@ -13,6 +13,9 @@
  */
 import { promises as fs } from "fs";
 import path from "path";
+import { resolveDatabaseUrl } from "../config/env";
+import { database } from "./database";
+import { PostgresStore } from "./postgres-store";
 import { FIXTURE_ADMIN, FIXTURE_ASSIGNEE, FIXTURE_ASSIGNMENTS } from "../auth/fixtures";
 import type { AssignmentScope, WebSightUser } from "../auth/types";
 import { defaultEnabledPlatforms } from "../config/platforms";
@@ -293,6 +296,20 @@ function defaultStore(): FileStoreData {
   };
 }
 
+function productionDefaults(): FileStoreData {
+  const data = defaultStore();
+  data.ranks = []; data.runs = []; data.knowledge = []; data.questions = []; data.drafts = [];
+  data.assignees = []; data.users = []; data.sessions = []; data.magicLinks = [];
+  data.seq.rank = 0; data.seq.run = 0; data.seq.knowledge = 0; data.seq.question = 0; data.seq.draft = 0;
+  return data;
+}
+let pgStore: PostgresStore<FileStoreData> | null = null;
+function configuredStore(): PostgresStore<FileStoreData> | null {
+  if (resolveDatabaseUrl()) return pgStore ??= new PostgresStore(database(), productionDefaults);
+  if (process.env.NODE_ENV === "production") throw new Error("Persistent PostgreSQL storage is required in production");
+  return null;
+}
+
 let memoryCache: FileStoreData | null = null;
 let writeChain: Promise<void> = Promise.resolve();
 let lastPersistError: string | null = null;
@@ -300,7 +317,7 @@ let lastPersistError: string | null = null;
 async function ensureLoaded(): Promise<FileStoreData> {
   if (memoryCache) return memoryCache;
   try {
-    const raw = await fs.readFile(STORE_PATH, "utf8");
+    const raw = await fs.readFile(/*turbopackIgnore: true*/ STORE_PATH, "utf8");
     memoryCache = JSON.parse(raw) as FileStoreData;
     return memoryCache;
   } catch {
@@ -328,12 +345,15 @@ async function persist(data: FileStoreData): Promise<void> {
 }
 
 export async function readStore(): Promise<FileStoreData> {
-  return ensureLoaded();
+  const pg = configuredStore();
+  return pg ? pg.read() : ensureLoaded();
 }
 
 export async function updateStore(
   mutator: (data: FileStoreData) => void | Promise<void>,
 ): Promise<FileStoreData> {
+  const pg = configuredStore();
+  if (pg) return pg.update(mutator);
   const data = await ensureLoaded();
   await mutator(data);
   await persist(data);

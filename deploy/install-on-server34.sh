@@ -24,7 +24,7 @@ cd "$ROOT"
 
 if [[ ! -f .env ]]; then
   echo "WARN: .env missing — copy from .env.example and fill campus secrets"
-  cp -n .env.example .env || true
+  cp -n deploy/env.example .env || true
 fi
 
 echo "==> npm ci"
@@ -34,7 +34,7 @@ echo "==> next build"
 npm run build
 
 echo "==> Done build. Next steps:"
-echo "  1) DBA: apply db/001_websight_schema.sql on candidate A or B"
+echo "  1) DBA: apply db/001 through db/006; see deploy/operations.md"
 echo "  2) Fill .env (NAVER_*, KAKAO_*, WEBSIGHT_DATABASE_URL)"
 echo "  3) pm2 start deploy/pm2.ecosystem.config.cjs"
 echo "  4) Install deploy/cron.example lines"

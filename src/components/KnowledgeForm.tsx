@@ -12,7 +12,8 @@ export function KnowledgeForm() {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const res = await fetch("/api/knowledge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,7 +31,7 @@ export function KnowledgeForm() {
       return;
     }
     setMsg("저장됨");
-    e.currentTarget.reset();
+    form.reset();
     router.refresh();
   }
 

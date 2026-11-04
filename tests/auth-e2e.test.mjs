@@ -1,0 +1,56 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
+import { readFile } from "node:fs/promises";
+import EmbeddedPostgres from "embedded-postgres";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
+async function freePort() { const s = createServer(); await new Promise((resolve, reject) => s.once("error", reject).listen(0, "127.0.0.1", resolve)); const port = s.address().port; await new Promise(resolve => s.close(resolve)); return port; }
+const password1 = "initial-admin-password-42";
+const password2 = "changed-admin-password-42";
+const userPassword1 = "initial-user-password-42";
+const userPassword2 = "changed-user-password-42";
+
+test("admin bootstrap, password changes, user assignment and scoped answers", { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), "websight-e2e-"));
+  const dbPort = await freePort(); const appPort = await freePort();
+  const pg = new EmbeddedPostgres({ databaseDir: dir, port: dbPort, user: "postgres", password: "test-only-password", persistent: true, postgresFlags: ["-h", "127.0.0.1"], onLog: () => {}, onError: () => {} });
+  let db; let child;
+  try {
+    await pg.initialise(); await pg.start(); db = pg.getPgClient(); await db.connect();
+    for (const name of ["001_websight_schema.sql", "002_kin_admin.sql", "003_assignees_settings.sql", "004_result_total.sql", "005_password_auth.sql", "006_app_state.sql"]) await db.query(await readFile(`db/${name}`, "utf8"));
+    const base = `http://127.0.0.1:${appPort}`;
+    const env = { ...process.env, NODE_ENV: "development", VERCEL: "", WEBSIGHT_DATABASE_URL: `postgresql://postgres:test-only-password@127.0.0.1:${dbPort}/postgres`, POSTGRES_URL: "", NAVER_CLIENT_ID: "", NAVER_CLIENT_SECRET: "", KAKAO_REST_API_KEY: "", ENABLED_PLATFORMS: "naver_web", CRON_SECRET: "test-cron-secret-123456", WEBSIGHT_ADMIN_EMAIL: "admin@example.org", WEBSIGHT_INITIAL_ADMIN_PASSWORD: password1 };
+    child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "-H", "127.0.0.1", "-p", String(appPort)], { env, stdio: "ignore" });
+    let ready = false;
+    for (let i = 0; i < 100; i++) { try { if ((await fetch(base + "/login")).ok) { ready = true; break; } } catch {} await new Promise(resolve => setTimeout(resolve, 200)); }
+    assert.ok(ready, "web server starts");
+    const post = async (path, body, cookie) => fetch(base + path, { method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+    let res = await post("/api/auth", { email: "admin@example.org", password: password1 }); assert.equal(res.status, 200, await res.clone().text()); let cookie = res.headers.get("set-cookie").split(";")[0];
+    assert.equal((await res.json()).redirect, "/password");
+    assert.equal((await fetch(base + "/api/users", { headers: { cookie } })).status, 401);
+    res = await post("/api/auth/password", { current: password1, next: password2 }, cookie); assert.equal(res.status, 200, await res.clone().text());
+    assert.equal((await fetch(base + "/api/users", { headers: { cookie } })).status, 401);
+    res = await post("/api/auth", { email: "admin@example.org", password: password2 }); assert.equal(res.status, 200, await res.clone().text()); cookie = res.headers.get("set-cookie").split(";")[0];
+    await db.query("BEGIN"); await db.query("SELECT pg_advisory_xact_lock(527391042)");
+    res = await post("/api/runs", {}, cookie); assert.equal(res.status, 409, await res.clone().text()); await db.query("ROLLBACK");
+    res = await post("/api/runs", {}, cookie); assert.equal(res.status, 200, await res.clone().text()); assert.ok((await res.json()).failures > 0);
+    assert.equal((await fetch(base + "/api/cron/daily")).status, 401);
+    res = await fetch(base + "/api/cron/daily", { headers: { authorization: "Bearer test-cron-secret-123456" } }); assert.equal(res.status, 200, await res.clone().text());
+    res = await post("/api/users", { action: "create", email: "user@example.org", name: "담당자", password: userPassword1 }, cookie); assert.equal(res.status, 200, await res.clone().text());
+    res = await post("/api/assignees", { assigneeEmail: "user@example.org", keywordPhrase: "혜전대학교", siteKey: "naver-kin" }, cookie); assert.equal(res.status, 200, await res.clone().text());
+    res = await post("/api/kin/detect", {}, cookie); assert.equal(res.status, 200, await res.clone().text());
+    const other = { id: "other-real-question", naverUrl: "https://kin.naver.com/other", title: "다른 질문", questionText: "내용", detectedAt: "2026-10-01T00:00:00Z", status: "new", matchedAliases: [], matchedKeywords: ["다른 키워드"] };
+    await db.query("UPDATE websight.app_state SET data=jsonb_set(data, '{questions}', data->'questions' || $1::jsonb) WHERE id=1", [JSON.stringify([other])]);
+    res = await fetch(base + "/api/users", { method: "POST", headers: { cookie, "content-type": "application/json", origin: "https://attacker.example" }, body: JSON.stringify({ action: "create" }) }); assert.equal(res.status, 403);
+    res = await post("/api/auth", { email: "user@example.org", password: userPassword1 }); assert.equal(res.status, 200, await res.clone().text()); let userCookie = res.headers.get("set-cookie").split(";")[0];
+    res = await post("/api/auth/password", { current: userPassword1, next: userPassword2 }, userCookie); assert.equal(res.status, 200, await res.clone().text());
+    res = await post("/api/auth", { email: "user@example.org", password: userPassword2 }); assert.equal(res.status, 200, await res.clone().text()); userCookie = res.headers.get("set-cookie").split(";")[0];
+    res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.equal(questions.length, 1);
+    res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
+    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 404);
+    assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
+  } finally { if (child) child.kill(); if (db) await db.end(); try { await pg.stop(); } catch {} if (resolve(dir).startsWith(resolve(tmpdir()) + sep)) await rm(dir, { recursive: true, force: true }); }
+});

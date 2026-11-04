@@ -16,13 +16,15 @@ export interface TosPolicy {
   retainRawDefault: "none";
 }
 
+export function validSnapshotTtl(value: number): boolean { return Number.isInteger(value) && value >= 1 && value <= 21; }
+
 export function loadTosPolicy(): TosPolicy {
   const ttlRaw = process.env.SNAPSHOT_TTL_DAYS;
   const ttl = ttlRaw === undefined || ttlRaw === "" ? 21 : Number(ttlRaw);
 
   return {
     mode: (process.env.TOS_MODE as TosMode) || "derived_meta",
-    snapshotTtlDays: Number.isFinite(ttl) ? ttl : 21,
+    snapshotTtlDays: validSnapshotTtl(ttl) ? ttl : 21,
     aggregateKeep: process.env.AGGREGATE_KEEP === "true",
     retainRawDefault: "none",
   };

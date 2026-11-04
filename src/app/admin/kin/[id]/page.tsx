@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { requireRole } from "../../../../auth/session";
+import { redirect } from "next/navigation";
 import { KinReviewSplit } from "../../../../components/KinReviewSplit";
 import {
   getDraftForQuestion,
@@ -9,13 +12,14 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function AdminKinDetailPage({ params }: Props) {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const { id } = await params;
   const question = await getQuestion(id);
   if (!question) {
     return (
       <section className="panel">
         <p>
-          질문 없음. <a href="/admin/kin">목록</a>
+          질문 없음. <Link href="/admin/kin">목록</Link>
         </p>
       </section>
     );

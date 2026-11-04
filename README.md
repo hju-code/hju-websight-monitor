@@ -1,81 +1,28 @@
-# 혜전대학교 WebSight Monitor (`hju-websight-monitor`)
+# 혜전대학교 WebSight
 
-**혜전대학교** (`hj.ac.kr`) 웹 검색 순위 통계 + 지식iN 반자동 검토 내부 앱.  
-이명: **해전대 = 혜전대**만 허용. **답글 자동 게시 없음.**
+혜전대학교 검색 현황과 충청권 전문대학 비교를 공개하고, 로그인한 담당자가 네이버 지식iN 답변을 검토하는 앱입니다. 답변은 네이버에 자동 게시하지 않습니다.
 
-| 영역 | 경로 | 접근 |
-|------|------|------|
-| 공개 통계 | `/` → `/stats` | 누구나 — 실집계(파일/PG) |
-| 지식인 검토 | `/review` | 담당자 이메일 로그인 |
-| 관리자 | `/admin` | 키워드·설정·담당자·지식·Kin |
+- **조회자:** 공개 검색 결과와 여섯 대학의 상대 검색 관심도 조회.
+- **관리자:** 사용자 계정·비밀번호 초기화, 담당 키워드 배정, 검색 설정·지식 관리 및 수동 수집.
+- **사용자:** 배정된 키워드의 지식iN 질문 확인과 답변 작성·저장·복사.
 
-- SERP: **네이버·다음 웹** (체크된 플랫폼만). 원문 미저장 · TTL≤21일  
-- **Google 수집 구현 보류** — 키 조사만  
-- 저장: PG(`WEBSIGHT_DATABASE_URL`) 없으면 **`data/websight-store.json`**  
-- 인증: 매직링크 + 개발용 이메일 세션 (`WEBSIGHT_DEV_AUTH`)
+네이버 웹문서 검색 결과 건수는 검색 횟수나 홈페이지 방문 수가 아닙니다. 상대 검색 관심도는 전월 네이버 데이터랩 수치를 공통 기준으로 보정한 지수이며 절대 검색량이 아닙니다. 제공자가 값을 반환하지 않으면 조회 불가로 표시합니다.
 
-원격 git push/PR·서버34 SSH는 별도 지시 전까지 금지.
+## 실행 준비
 
----
-
-## 빠른 시작 (클라우드 / PC)
+Node.js 및 PostgreSQL이 필요합니다. `db/001`부터 `db/006`까지 순서대로 적용하고, `deploy/env.example`을 참고해 서버의 비밀 환경변수를 설정합니다. 초기 관리자 이메일과 15자 이상 초기 비밀번호는 `WEBSIGHT_ADMIN_EMAIL` 및 `WEBSIGHT_INITIAL_ADMIN_PASSWORD`로 설정합니다. 첫 로그인 후 비밀번호를 변경해야 하며, 이후 환경변수를 변경해도 기존 계정 비밀번호는 덮어쓰지 않습니다.
 
 ```bash
-unzip hju-websight-monitor.zip && cd hju-websight-monitor
-cp .env.example .env
-npm install
+npm ci
+npm test
+npm run test:integration
+npm run lint
 npm run build
-npm run dev          # http://127.0.0.1:3040/stats  (PORT 기본 3040)
-# 또는 npm start  (build 후)
-bash scripts/smoke.sh http://127.0.0.1:3040
+npm run dev
 ```
 
-시드 로그인: 관리자 `websight-admin@hj.ac.kr` · 담당자 `advisor@example.com`  
-`/login` → **개발: 담당자/관리자 세션** 또는 매직링크.
+운영 환경에서는 PostgreSQL 연결이 필수입니다. 계정·세션은 PostgreSQL 테이블에, 기존 업무 데이터는 트랜잭션으로 보호되는 PostgreSQL 상태 테이블에 저장합니다. 검색 순위는 기존 순위 테이블을 사용합니다. 비밀번호는 scrypt 해시로 저장하며, 비밀번호 변경이나 비활성화 시 기존 세션을 폐기합니다.
 
----
+기존 파일 데이터를 가져오는 경우에는 신규 앱이 상태 테이블을 초기화하기 전에 백업 후 가져와야 합니다. 마이그레이션, 권한, 비밀값, 정기 수집, 복구 및 학교 34번 서버 이전에 관한 상세 절차는 [운영 문서](deploy/operations.md)를 확인하세요. 실제 배포와 서버 변경은 별도 승인 후 진행합니다.
 
-## 서버34 배포 (내일 PC)
-
-1. 이 zip을 PC로 가져와 풀기.  
-2. `.env`에 `NAVER_*`, `KAKAO_REST_API_KEY`, (가능하면) `WEBSIGHT_DATABASE_URL`, `WEBSIGHT_ADMIN_TOKEN` 채우기.  
-3. DBA: `db/001`→`002`→`003` schema `websight`.  
-4. `agent worker start` 후 서버34 **별도 폴더** 복사 (예: `/opt/hju/hju-websight-monitor`).  
-5. 서버에서 `bash deploy/install-on-server34.sh` → PM2 · cron.  
-6. 스모크: `curl :3040/api/health` · `/stats` · `/review` · `/admin`.
-
-상세: Project `docs/websight-server34-deploy.md` · zip 안 `deploy/checklist.md`.
-
----
-
-## 구조
-
-```
-src/app/stats|review|admin|login   세 역할 UI
-src/app/api/*                      실동작 API (파일 스토어)
-src/db/file-store.ts · store.ts    PG 없을 때 JSON 저장
-src/collectors                     Naver/Daum 실구현, Kin 감지, Google 보류
-src/auth/session.ts                매직링크·개발 세션
-db/001–003 · deploy/ · scripts/smoke.sh
-```
-
-| 명령 | 설명 |
-|------|------|
-| `npm run dev` | 개발 서버 (PORT=3040) |
-| `npm run build` / `start` | 프로덕션 |
-| `npm run dry-run` | 수집 드라이런 |
-| `npm run collect` | 수집 (체크 플랫폼만) |
-| `bash scripts/smoke.sh` | 라우트·Kin E2E 스모크 |
-
----
-
-## Env 요약
-
-`NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` — **NAVER API HUB** (`console.ncloud.com` → NAVER API HUB).  
-기본 호출: `naverapihub.apigw.ntruss.com` + `X-NCP-APIGW-API-KEY-ID` / `X-NCP-APIGW-API-KEY`.  
-구 키만 `NAVER_API_LEGACY=true`(openapi.naver.com, ~2027-06-30).  
-
-`KAKAO_REST_API_KEY`, `WEBSIGHT_DATABASE_URL`(선택), `ENABLED_PLATFORMS`,  
-`WEBSIGHT_DEV_AUTH=true`, `TOS_MODE=derived_meta`, `SNAPSHOT_TTL_DAYS=21`, `GOOGLE_ENABLED=false`.
-
-*시크릿 없음.*
+Vercel 정기 수집에는 `CRON_SECRET`이 필요합니다. 환경변수를 설정하지 않으면 정기 작업은 인증 실패로 실행되지 않습니다. 네이버 검색어 트렌드 API 권한이 없으면 상대 관심도는 표시되지 않습니다.

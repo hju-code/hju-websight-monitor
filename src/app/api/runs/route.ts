@@ -1,3 +1,6 @@
+import { withCollectionLock } from "../../../jobs/exclusive";
+import { isSafeMutation } from "../../../auth/csrf";
+import { requireRole } from "../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { runCollectJob } from "../../../jobs/collect-run";
 import {
@@ -14,31 +17,20 @@ function unauthorized() {
 }
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.WEBSIGHT_ADMIN_TOKEN;
-  const got = req.headers.get("x-admin-token");
-  const devOk =
-    process.env.WEBSIGHT_DEV_AUTH !== "false" && !expected;
-  if (expected) {
-    if (got !== expected) return unauthorized();
-  } else if (!devOk) {
-    return NextResponse.json(
-      {
-        error:
-          "WEBSIGHT_ADMIN_TOKEN not set — refuse manual runs until admin token configured",
-      },
-      { status: 503 },
-    );
-  }
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!(await requireRole(["admin"]))) return unauthorized();
 
   const dry = req.nextUrl.searchParams.get("dry") === "1";
   const q = req.nextUrl.searchParams.get("q")?.trim();
   const keywords = q ? [q] : undefined;
   try {
-    const out = await runCollectJob({
+    const locked = await withCollectionLock(() => runCollectJob({
       persist: !dry,
       triggeredBy: "manual",
       keywords,
-    });
+    }));
+    if (!locked.acquired || !locked.value) return NextResponse.json({ ok: false, error: "이미 수집 중입니다." }, { status: 409 });
+    const out = locked.value;
     return NextResponse.json({
       ok: true,
       dry,
@@ -47,9 +39,9 @@ export async function POST(req: NextRequest) {
       persistError: getLastPersistError(),
       ...out,
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: "수집을 완료하지 못했습니다." },
       { status: 500 },
     );
   }

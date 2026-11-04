@@ -1,7 +1,12 @@
+import Link from "next/link";
+import { requireRole } from "../../../auth/session";
+import { canAccessQuestion } from "../../../auth/scope";
+import { redirect, notFound } from "next/navigation";
 import { KinReviewSplit } from "../../../components/KinReviewSplit";
 import {
   getDraftForQuestion,
   getQuestion,
+  listAssignees,
 } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
@@ -9,15 +14,18 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ReviewDetailPage({ params }: Props) {
+  const user = await requireRole(["admin", "assignee"]);
+  if (!user) redirect("/login");
   const { id } = await params;
   const question = await getQuestion(id);
   if (!question) {
     return (
       <section className="panel">
-        <p>질문을 찾을 수 없습니다. <a href="/review">목록</a></p>
+        <p>질문을 찾을 수 없습니다. <Link href="/review">목록</Link></p>
       </section>
     );
   }
+  if (!canAccessQuestion(user, question, await listAssignees())) notFound();
   const draft = await getDraftForQuestion(id);
 
   return (

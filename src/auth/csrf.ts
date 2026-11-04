@@ -1,0 +1,8 @@
+/** Browsers send Origin or Fetch Metadata for cross-site state-changing requests. */
+export function isSafeMutation(request: Request): boolean {
+  if (request.headers.get("sec-fetch-site") === "cross-site") return false;
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try { return new URL(origin).origin === new URL(request.url).origin; }
+  catch { return false; }
+}

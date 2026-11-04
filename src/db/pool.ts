@@ -11,12 +11,11 @@ export function getPool(): Pool {
       "WEBSIGHT_DATABASE_URL (or POSTGRES_URL) is not set. Use campus server env — do not invent credentials.",
     );
   }
+  const schema = quoteIdent(env.dbSchema);
   pool = new Pool({
     connectionString: env.databaseUrl,
-    // Prefer schema websight via search_path after connect
-  });
-  pool.on("connect", (client) => {
-    void client.query(`SET search_path TO ${quoteIdent(env.dbSchema)}, public`);
+    options: `-c search_path=${schema},public`,
+    max: 5,
   });
   return pool;
 }

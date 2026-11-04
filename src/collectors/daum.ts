@@ -101,6 +101,7 @@ export class DaumKakaoCollector implements Collector {
             Authorization: `KakaoAK ${apiKey}`,
           },
           cache: "no-store",
+          signal: AbortSignal.timeout(10000),
         });
         requestCount += 1;
 

@@ -90,11 +90,11 @@ export function SettingsTosForm(props: {
           </select>
         </div>
         <div className="form-row">
-          <label htmlFor="ttl">SNAPSHOT_TTL_DAYS</label>
+          <label htmlFor="ttl">검색 결과 보관 기간 (일)</label>
           <input
             id="ttl"
             name="snapshot_ttl_days"
-            type="number"
+            type="number" min={1} max={21} step={1}
             defaultValue={props.ttl}
           />
         </div>
@@ -106,7 +106,7 @@ export function SettingsTosForm(props: {
             defaultValue={props.googleEnabled ? "true" : "false"}
           >
             <option value="false">보류 (false)</option>
-            <option value="true">활성화 (키 확인 후)</option>
+            <option value="true" disabled>활성화 준비 중</option>
           </select>
         </div>
         <div className="form-row">

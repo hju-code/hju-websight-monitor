@@ -17,6 +17,7 @@ export interface DerivedRankRow {
   requestCount: number;
   providerStatus: string | null;
   errorCode: string | null;
+  snapshotTtlDays?: number;
 }
 
 /** Create a run row. */
@@ -46,7 +47,7 @@ export async function finishRun(
  */
 export async function insertRankSnapshot(runId: number, row: DerivedRankRow) {
   const tos = loadTosPolicy();
-  const expiresAt = computeExpiresAt(row.collectedAt, tos.snapshotTtlDays);
+  const expiresAt = computeExpiresAt(row.collectedAt, row.snapshotTtlDays ?? tos.snapshotTtlDays);
   const pool = getPool();
 
   await pool.query(
@@ -125,7 +126,7 @@ export async function listKeywords() {
 export async function listRecentRanks(limit = 50) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT s.id, s.collected_at, s.school_rank, s.school_status,
+    `SELECT s.id, s.run_id, s.request_count, s.provider_status, s.collected_at, s.school_rank, s.school_status,
             s.matched_domain, s.matched_url, s.result_total,
             k.phrase, c.engine, c.tab
      FROM rank_snapshots s

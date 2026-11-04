@@ -108,6 +108,7 @@ export class NaverSearchCollector implements Collector {
         method: "GET",
         headers: naverAuthHeaders(clientId, clientSecret),
         cache: "no-store",
+        signal: AbortSignal.timeout(10000),
       });
 
       if (res.status === 429) {

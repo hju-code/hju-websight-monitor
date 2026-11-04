@@ -11,7 +11,8 @@ export function KeywordForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const res = await fetch("/api/keywords", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,7 +22,7 @@ export function KeywordForm() {
     setBusy(false);
     setMsg(json.ok ? "저장됨" : json.error ?? "실패");
     if (json.ok) {
-      e.currentTarget.reset();
+      form.reset();
       router.refresh();
     }
   }

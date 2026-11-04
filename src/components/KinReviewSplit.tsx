@@ -1,159 +1,25 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { KinDraft, KinQuestion } from "../kin/types";
-
-/**
- * Side-by-side review: question | draft.
- * Desktop 2-col, mobile stacked. No auto-post control.
- */
-export function KinReviewSplit(props: {
-  question: KinQuestion;
-  draft: KinDraft | null;
-}) {
-  const { question } = props;
-  const [draft, setDraft] = useState(props.draft);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-
-  async function generate() {
-    setBusy(true);
-    setMsg(null);
-    const res = await fetch("/api/kin/drafts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "generate", questionId: question.id }),
-    });
-    const json = (await res.json()) as {
-      ok?: boolean;
-      draft?: KinDraft;
-      errorMessage?: string;
-    };
-    setBusy(false);
-    if (!json.ok || !json.draft) {
-      setMsg(json.errorMessage ?? "초안 생성 실패");
-      return;
-    }
-    setDraft(json.draft);
-    setMsg("초안 생성됨 — 자동 게시 없음");
-    router.refresh();
+export function KinReviewSplit({ question, draft: initial }: { question: KinQuestion; draft: KinDraft | null }) {
+  const [draft, setDraft] = useState(initial); const [text, setText] = useState(initial?.draftBody ?? "");
+  const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false); const router = useRouter();
+  async function send(action: string) {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, questionId: question.id, draftId: action === "save" || action === "generate" ? undefined : draft?.id, body: text }) });
+      const result = await response.json();
+      if (!response.ok || !result.ok) { setMessage(result.error || result.errorMessage || "처리하지 못했습니다."); return; }
+      setDraft(result.draft); setText(result.draft.draftBody); setMessage("저장했습니다."); router.refresh();
+    } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
-
-  async function act(action: "approve" | "reject" | "copied_for_manual_post") {
-    if (!draft) return;
-    setBusy(true);
-    const res = await fetch("/api/kin/drafts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, draftId: draft.id }),
-    });
-    const json = (await res.json()) as {
-      ok?: boolean;
-      draft?: KinDraft;
-      error?: string;
-      note?: string;
-    };
-    setBusy(false);
-    if (!json.ok || !json.draft) {
-      setMsg(json.error ?? "실패");
-      return;
-    }
-    setDraft(json.draft);
-    setMsg(json.note ?? "저장됨");
-    router.refresh();
+  async function copy() {
+    try { await navigator.clipboard.writeText(text); setMessage("복사했습니다. 네이버에서 직접 붙여넣어 주세요."); } catch { setMessage("복사하지 못했습니다. 내용을 직접 선택해 복사해 주세요."); }
   }
-
-  return (
-    <div className="review-split" data-autopost="disabled">
-      <section className="review-pane" aria-labelledby="kin-q-heading">
-        <div className="review-pane-label" id="kin-q-heading">
-          원본 질문
-        </div>
-        <h2 className="review-title">{question.title}</h2>
-        <p className="review-meta muted">
-          감지 {new Date(question.detectedAt).toLocaleString("ko-KR")} ·{" "}
-          <a href={question.naverUrl} target="_blank" rel="noopener noreferrer">
-            네이버에서 열기
-          </a>
-        </p>
-        <div className="review-body">{question.questionText}</div>
-        {question.matchedAliases.length > 0 && (
-          <p className="muted" style={{ marginTop: "1rem" }}>
-            매칭 별칭: {question.matchedAliases.join(", ")}
-          </p>
-        )}
-      </section>
-
-      <section className="review-pane review-pane-draft" aria-labelledby="kin-d-heading">
-        <div className="review-pane-label" id="kin-d-heading">
-          초안 답변
-        </div>
-        {draft ? (
-          <>
-            <p className="review-meta muted">
-              상태 <span className="badge warn">{draft.status}</span> · 자동 게시{" "}
-              <strong>없음</strong>
-            </p>
-            <pre className="review-body draft-text">{draft.draftBody}</pre>
-            <div className="review-actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={busy}
-                onClick={() => void act("approve")}
-              >
-                승인 (저장만)
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={busy}
-                onClick={() => void act("reject")}
-              >
-                반려
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy}
-                onClick={() => {
-                  void navigator.clipboard?.writeText(draft.draftBody);
-                  void act("copied_for_manual_post");
-                }}
-              >
-                복사 후 네이버 붙여넣기
-              </button>
-              <a
-                className="btn btn-ghost"
-                href={question.naverUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                네이버 열기
-              </a>
-            </div>
-            <p className="muted notice-nopost">
-              이 앱은 네이버에 답글을 <strong>자동 게시하지 않습니다</strong>. 승인·복사는
-              작업용이며, 게시는 네이버 UI에서 직접 수행합니다.
-            </p>
-          </>
-        ) : (
-          <div>
-            <p className="muted">초안 없음 — 지식 베이스에서 생성하세요.</p>
-            <button
-              type="button"
-              className="btn"
-              disabled={busy}
-              onClick={() => void generate()}
-            >
-              초안 생성
-            </button>
-          </div>
-        )}
-        {msg ? <p className="muted">{msg}</p> : null}
-      </section>
-    </div>
-  );
+  return <div className="review-split">
+    <section className="review-pane"><h2>질문</h2><h3>{question.title}</h3><p className="muted">{new Date(question.detectedAt).toLocaleString("ko-KR")}</p><p className="review-body">{question.questionText}</p><p><a href={question.naverUrl} target="_blank" rel="noopener noreferrer">네이버에서 질문 열기</a></p></section>
+    <section className="review-pane review-pane-draft"><h2>답변 작성</h2><p className="muted">답변을 저장하고 검토한 뒤 네이버에서 직접 게시합니다.</p><div className="admin-form"><label htmlFor="answer">답변 내용</label><textarea id="answer" value={text} onChange={e => setText(e.target.value)} maxLength={20000} /></div>
+      <div className="review-actions"><button className="btn" disabled={busy || !text.trim()} onClick={() => void send("save")}>답변 저장</button><button className="btn btn-secondary" disabled={busy} onClick={() => void send("generate")}>지식에서 초안 생성</button><button className="btn btn-ghost" disabled={!text.trim()} onClick={() => void copy()}>내용 복사</button></div>{message && <p role="status">{message}</p>}</section>
+  </div>;
 }

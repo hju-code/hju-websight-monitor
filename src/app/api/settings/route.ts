@@ -1,8 +1,7 @@
+import { validSnapshotTtl } from "../../../config/tos";
+import { isSafeMutation } from "../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  AUTH_STRATEGY_RECOMMENDATION,
-  AUTH_RECOMMENDATION_NOTE,
-} from "../../../auth/types";
+
 import { requireRole } from "../../../auth/session";
 import {
   ENABLED_PLATFORMS_KEY,
@@ -18,14 +17,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const settings = await getSettings();
   return NextResponse.json({
     tos_mode: settings.tos_mode,
     snapshot_ttl_days: settings.snapshot_ttl_days,
     google_enabled: settings.google_enabled,
     kin_auto_post: false,
-    auth_strategy: AUTH_STRATEGY_RECOMMENDATION,
-    auth_note: AUTH_RECOMMENDATION_NOTE,
     [ENABLED_PLATFORMS_KEY]: {
       enabled: settings.enabled_platforms,
       updatedAt: settings.updatedAt,
@@ -33,23 +31,14 @@ export async function GET() {
     platform_catalog: PLATFORM_CATALOG,
     platform_note: PLATFORM_CATALOG_NOTE,
     env_hint: `ENABLED_PLATFORMS=${settings.enabled_platforms.join(",")}`,
-    storage: "file",
+    storage: "postgresql",
   });
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const admin = await requireRole(["admin"]);
-  // Allow cloud preview without session if admin token header matches
-  const token = process.env.WEBSIGHT_ADMIN_TOKEN;
-  const headerTok = req.headers.get("x-admin-token");
-  const allowed =
-    Boolean(admin) ||
-    (token && headerTok === token) ||
-    process.env.WEBSIGHT_DEV_AUTH !== "false";
-
-  if (!allowed) {
-    return NextResponse.json({ ok: false, error: "admin required" }, { status: 401 });
-  }
+  if (!admin) return NextResponse.json({ ok: false, error: "admin required" }, { status: 401 });
 
   const contentType = req.headers.get("content-type") || "";
   let enabled: string[] | undefined;
@@ -87,20 +76,21 @@ export async function POST(req: NextRequest) {
 
   let settings;
   if (section === "tos") {
+    if ((snapshot_ttl_days !== undefined && !validSnapshotTtl(snapshot_ttl_days)) || (tos_mode !== undefined && tos_mode !== "derived_meta") || google_enabled === true) return NextResponse.json({ ok: false, error: "보존기간은 1~21일이어야 하며 미지원 수집 기능은 활성화할 수 없습니다." }, { status: 400 });
     settings = await saveTosSettings({
       tos_mode,
       snapshot_ttl_days,
       google_enabled,
     });
   } else {
-    if (!enabled) {
+    if (!Array.isArray(enabled) || enabled.some(id => typeof id !== "string")) {
       return NextResponse.json(
         { ok: false, error: "enabled_platforms required" },
         { status: 400 },
       );
     }
     // Validate against catalog ids
-    const allowedIds = new Set(PLATFORM_CATALOG.map((p) => p.id));
+    const allowedIds = new Set(["naver_web", "daum_web"]);
     const filtered = enabled.filter((id) => allowedIds.has(id));
     settings = await savePlatforms(filtered);
   }

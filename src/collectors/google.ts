@@ -14,6 +14,7 @@ export class GooglePseCollector implements Collector {
   readonly id = "google-pse-stub";
 
   supports(engine: CollectRequest["engine"], tab: CollectRequest["tab"]): boolean {
+    void engine; void tab;
     if (process.env.GOOGLE_ENABLED === "true") {
       // Still unsupported until real implementation lands.
       return false;
@@ -22,6 +23,7 @@ export class GooglePseCollector implements Collector {
   }
 
   async collect(req: CollectRequest): Promise<CollectResult> {
+    void req;
     return {
       ok: false,
       hits: [],

@@ -1,9 +1,12 @@
+import { requireRole } from "../../../auth/session";
+import { redirect } from "next/navigation";
 import { KeywordForm } from "../../../components/KeywordForm";
 import { listAssignees, listKeywordsFromStore } from "../../../db/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminKeywordsPage() {
+  if (!(await requireRole(["admin"]))) redirect("/login");
   const keywords = await listKeywordsFromStore();
   const assignments = await listAssignees();
 

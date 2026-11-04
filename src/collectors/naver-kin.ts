@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mentionsHyejeon, normalizeSchoolMention } from "../kin/aliases";
 import type { KinQuestion } from "../kin/types";
 import {
@@ -78,6 +79,7 @@ export class NaverKinDetector implements Collector {
       const res = await fetch(url.toString(), {
         headers: naverAuthHeaders(clientId, clientSecret),
         cache: "no-store",
+          signal: AbortSignal.timeout(10000),
       });
       const body = (await res.json()) as {
         items?: Array<{ title?: string; link?: string; description?: string }>;
@@ -154,8 +156,8 @@ export function hitsToKinQuestions(
   const now = new Date().toISOString();
   return hits
     .filter((h) => mentionsHyejeon(`${h.title} ${h.snippet ?? ""}`))
-    .map((h, i) => ({
-      id: `kin-stub-${i}-${Buffer.from(h.url).toString("base64url").slice(0, 12)}`,
+    .map((h) => ({
+      id: `kin-${createHash("sha256").update(h.url).digest("hex").slice(0, 24)}`,
       naverUrl: h.url,
       title: normalizeSchoolMention(h.title),
       questionText: normalizeSchoolMention(h.snippet ?? h.title),

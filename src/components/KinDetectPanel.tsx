@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function KinDetectPanel() {
+export function KinDetectPanel({ latestQuestionId }: { latestQuestionId?: string }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -17,12 +17,15 @@ export function KinDetectPanel() {
       added?: number;
       mode?: string;
       note?: string;
+      error?: string;
+      partial?: boolean;
+      failures?: number;
     };
     setBusy(false);
     setMsg(
       json.ok
-        ? `감지 ${json.mode}: +${json.added ?? 0} · ${json.note ?? ""}`
-        : "감지 실패",
+        ? `새 질문 ${json.added ?? 0}건${json.partial ? ` · ${json.failures}개 키워드 조회 실패` : ""}`
+        : json.error ?? "감지 실패",
     );
     router.refresh();
   }
@@ -32,7 +35,7 @@ export function KinDetectPanel() {
     const res = await fetch("/api/kin/drafts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "generate" }),
+      body: JSON.stringify({ action: "generate", questionId: latestQuestionId }),
     });
     const json = (await res.json()) as {
       ok?: boolean;
@@ -60,7 +63,7 @@ export function KinDetectPanel() {
       <button
         type="button"
         className="btn btn-secondary"
-        disabled={busy}
+        disabled={busy || !latestQuestionId}
         onClick={() => void draftLatest()}
       >
         최신 질문 초안 생성

@@ -1,51 +1,18 @@
+import Link from "next/link";
 import type { Metadata } from "next";
+import { getCurrentUser } from "../auth/session";
+import { LogoutButton } from "../components/LogoutButton";
 import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "혜전대학교 WebSight Monitor",
-  description: "혜전대학교 웹 노출 통계 · 지식iN 검토 (내부)",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="ko">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@500;600&family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:wght@500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>
-        <main>
-          <header className="app-header">
-            <div>
-              <h1 className="brand">
-                혜전대학교
-                <span className="brand-sub">
-                  WebSight · 공개 통계 / 지식인 검토 / 관리자
-                </span>
-              </h1>
-            </div>
-            <nav aria-label="영역">
-              <a href="/stats">공개 통계</a>
-              <a href="/review">지식인 검토</a>
-              <a href="/admin">관리자</a>
-              <a href="/login">로그인</a>
-            </nav>
-          </header>
-          {children}
-        </main>
-      </body>
-    </html>
-  );
+export const metadata: Metadata = { title: "혜전대학교 WebSight", description: "혜전대학교 웹 검색 현황과 지식iN 검토" };
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const user = await getCurrentUser();
+  return <html lang="ko"><body><div className="site-shell">
+    <header className="site-header"><div className="header-inner">
+      <Link href="/stats" className="brand-lockup"><span className="brand-mark" aria-hidden="true">H</span><span><strong>혜전대학교</strong><small>WebSight</small></span></Link>
+      <nav aria-label="주 메뉴"><Link href="/stats">검색 현황</Link>{user && !user.mustChangePassword && <Link href="/review">지식iN 검토</Link>}{user?.role === "admin" && !user.mustChangePassword && <Link href="/admin">관리</Link>}</nav>
+      <div className="account-nav">{user ? <><Link href="/password">비밀번호 변경</Link><LogoutButton /></> : <Link href="/login">로그인</Link>}</div>
+    </div></header>
+    <main className="main-content">{children}</main>
+    <footer className="site-footer">혜전대학교 · WebSight 검색 현황</footer>
+  </div></body></html>;
 }
