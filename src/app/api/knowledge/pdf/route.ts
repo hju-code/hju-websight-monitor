@@ -3,22 +3,21 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { requireRole } from "../../../../auth/session";
 import { createKnowledge } from "../../../../db/store";
 import { aiConfig, embedBatch } from "../../../../kin/ai";
-import { extractPdfSections } from "../../../../kin/pdf";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (Number(req.headers.get("content-length") || 0) > 4 * 1024 * 1024) return NextResponse.json({ error: "PDF는 4MB 이하로 올려 주세요." }, { status: 413 });
+  if (Number(req.headers.get("content-length") || 0) > 4 * 1024 * 1024) return NextResponse.json({ error: "추출한 내용이 너무 깁니다. PDF를 나누어 올려 주세요." }, { status: 413 });
   try {
-    const form = await req.formData();
-    const file = form.get("pdf");
-    if (!(file instanceof File) || !file.size || file.size > 3.5 * 1024 * 1024) return NextResponse.json({ error: "3.5MB 이하의 PDF 한 개를 선택해 주세요." }, { status: 400 });
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") return NextResponse.json({ error: "올바른 PDF 파일을 선택해 주세요." }, { status: 400 });
-    const name = file.name.replace(/[\x00-\x1f/\\]/g, "").slice(0, 160) || "입시요강.pdf";
-    const extracted = await extractPdfSections(bytes);
+    if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 415 });
+    const input = await req.json() as { name?: unknown; sections?: unknown; emptyPages?: unknown };
+    if (typeof input.name !== "string" || !Array.isArray(input.sections) || !input.sections.length || input.sections.length > 300 || !Number.isInteger(input.emptyPages) || Number(input.emptyPages) < 0 || Number(input.emptyPages) > 150) return NextResponse.json({ error: "PDF에서 추출한 내용을 확인해 주세요." }, { status: 400 });
+    const parts = input.sections as { page?: unknown; text?: unknown }[];
+    if (parts.some(p => !p || !Number.isInteger(p.page) || Number(p.page) < 1 || Number(p.page) > 150 || typeof p.text !== "string" || p.text.length < 20 || p.text.length > 2100)) return NextResponse.json({ error: "PDF에서 추출한 내용을 확인해 주세요." }, { status: 400 });
+    const name = input.name.replace(/[\x00-\x1f/\\]/g, "").slice(0, 160) || "입시요강.pdf";
+    const extracted = { sections: parts as { page: number; text: string }[], emptyPages: Number(input.emptyPages) };
     const config = aiConfig();
     const vectors = await embedBatch(extracted.sections.map(part => `${name}\n${part.text}`), config);
     const sections = extracted.sections.map((part, i) => ({ ...part, embedding: vectors[i] }));

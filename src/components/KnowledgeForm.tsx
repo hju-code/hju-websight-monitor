@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { extractPdfInBrowser } from "../kin/pdf-browser";
 
 export function KnowledgeForm() {
   const router = useRouter();
@@ -14,11 +15,16 @@ export function KnowledgeForm() {
     e.preventDefault(); setPdfBusy(true); setPdfMsg(null);
     const form = e.currentTarget;
     try {
-      const res = await fetch("/api/knowledge/pdf", { method: "POST", body: new FormData(form) });
-      const result = await res.json();
+      const file = new FormData(form).get("pdf");
+      if (!(file instanceof File) || !file.size) throw new Error("PDF 파일을 선택해 주세요.");
+      setPdfMsg("PDF에서 글자를 읽고 있습니다. 잠시 기다려 주세요.");
+      const extracted = await extractPdfInBrowser(file);
+      setPdfMsg("검색 자료를 만들고 있습니다. 잠시 기다려 주세요.");
+      const res = await fetch("/api/knowledge/pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, ...extracted }) });
+      const result = await res.json().catch(() => ({ error: "서버에서 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요." }));
       if (!res.ok) { setPdfMsg(result.error || "PDF 등록에 실패했습니다."); return; }
       setPdfMsg(`등록 완료: ${result.sectionCount}개 구간을 검색할 수 있습니다.${result.emptyPages ? ` 글자가 거의 없는 ${result.emptyPages}쪽은 누락됐을 수 있으니 OCR 처리 후 확인해 주세요.` : ""}`); form.reset(); router.refresh();
-    } catch { setPdfMsg("서버에 연결하지 못했습니다."); } finally { setPdfBusy(false); }
+    } catch (error) { setPdfMsg(error instanceof Error ? error.message : "PDF를 처리하지 못했습니다."); } finally { setPdfBusy(false); }
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,7 +50,7 @@ export function KnowledgeForm() {
 
   return <>
     <form className="admin-form" onSubmit={uploadPdf}>
-      <div className="form-row"><label htmlFor="pdf">입시요강 PDF</label><input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required /><span className="muted">PDF 1개, 최대 3.5MB · 최대 150쪽. 글자를 추출해 검색 자료로 저장합니다. 이미지로만 된 PDF는 문자 인식(OCR)이 필요합니다.</span></div>
+      <div className="form-row"><label htmlFor="pdf">입시요강 PDF</label><input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required /><span className="muted">PDF 1개, 최대 50MB · 최대 150쪽. 컴퓨터에서 글자를 추출합니다. 이미지로만 된 PDF는 문자 인식(OCR)이 필요합니다.</span></div>
       <button className="btn" disabled={pdfBusy}>{pdfBusy ? "PDF 분석 중…" : "PDF 등록 및 검색 준비"}</button>
       {pdfMsg && <p role="status">{pdfMsg}</p>}
     </form>
