@@ -10,7 +10,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return <html lang="ko"><body><div className="site-shell">
     <header className="site-header"><div className="header-inner">
       <Link href="/stats" className="brand-lockup"><Image className="university-logo" src="/hyejeon-logo.png" alt="혜전대학교" width={180} height={50} priority /><span className="brand-service">WebSight</span></Link>
-      <nav aria-label="주 메뉴"><Link href="/stats">검색 현황</Link>{user && !user.mustChangePassword && <Link href="/review">지식iN 검토</Link>}{user?.role === "admin" && !user.mustChangePassword && <Link href="/admin">관리</Link>}</nav>
+      <nav aria-label="주 메뉴"><Link href="/stats">검색 현황</Link>{user && !user.mustChangePassword && (user.role === "admin" || user.role === "assignee") && <><Link href="/review">지식iN 검토</Link><Link href="/review/history">답변 기록 보기</Link></>}{user?.role === "admin" && !user.mustChangePassword && <Link href="/admin">관리</Link>}</nav>
       <div className="account-nav">{user ? <><Link href="/password">비밀번호 변경</Link><LogoutButton /></> : <Link href="/login">로그인</Link>}</div>
     </div></header>
     <main className="main-content">{children}</main>

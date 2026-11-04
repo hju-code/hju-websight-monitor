@@ -532,6 +532,8 @@ input, textarea, select { min-height: 44px; }
 .history-sheet input[type="checkbox"] { min-height: 0; width: 17px; height: 17px; accent-color: var(--accent); }
 .history-title, .history-owner { overflow-wrap: anywhere; }.history-date { font-size: .85rem; }
 .history-body summary { cursor: pointer; overflow-wrap: anywhere; }.history-body p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-body-actions { display: flex; align-items: flex-start; gap: 12px; }.history-body-actions details { flex: 1; min-width: 0; }
+.history-question-link { flex: none; font-size: .85rem; font-weight: 650; }
 .history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
 :focus-visible { outline: 3px solid #007eae; outline-offset: 3px; }
 .review-pane { border-radius: 14px; }
