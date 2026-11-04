@@ -12,7 +12,7 @@ export default async function ReviewInboxPage() {
   const user = await requireRole(["admin", "assignee"]);
   if (!user) redirect("/login");
   const assignments = await listAssignees();
-  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments));
+  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments)).sort((a, b) => Number(a.status === "manual_posted") - Number(b.status === "manual_posted"));
   const rows = await Promise.all(
     questions.map(async (q) => ({
       q,
@@ -23,11 +23,7 @@ export default async function ReviewInboxPage() {
   return (
     <>
       <p className="page-lead">
-        <strong>지식인 검토</strong> — 관리자가 등록한 담당자 이메일로{" "}
-        <a href="/login">로그인</a>한 뒤 이용합니다. 키워드·사이트·전체 설정(
-        <a href="/admin">관리자</a>)과 <em>별개 영역</em>입니다. 대상 학교명은
-        <strong>혜전대학교</strong>(이명 해전대)입니다.{" "}
-        <strong>답글 자동 게시 없음.</strong>
+        <strong>지식인 검토</strong> — 질문을 확인하고 답변을 작성한 뒤 네이버에서 직접 게시합니다. 답변 여부는 담당자가 원문을 확인하고 표시합니다.
       </p>
 
       {!user ? (
@@ -45,12 +41,12 @@ export default async function ReviewInboxPage() {
       )}
 
       <section className="panel">
-        <h2>검토 대기</h2>
+        <h2>질문 목록</h2>
         <table>
           <thead>
             <tr>
               <th>질문</th>
-              <th>상태</th>
+              <th>혜전대학교 답변</th>
               <th>초안</th>
               <th></th>
             </tr>
@@ -67,7 +63,7 @@ export default async function ReviewInboxPage() {
                 <tr key={q.id}>
                   <td>{q.title}</td>
                   <td>
-                    <span className="badge warn">{q.status}</span>
+                    <span className="badge warn">{q.status === "manual_posted" ? "확인됨 (담당자 표시)" : "미확인"}</span>
                   </td>
                   <td className="muted">{draft ? draft.status : "없음"}</td>
                   <td>

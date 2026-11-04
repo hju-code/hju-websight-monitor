@@ -48,9 +48,11 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/auth", { email: "user@example.org", password: userPassword1 }); assert.equal(res.status, 200, await res.clone().text()); let userCookie = res.headers.get("set-cookie").split(";")[0];
     res = await post("/api/auth/password", { current: userPassword1, next: userPassword2 }, userCookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/auth", { email: "user@example.org", password: userPassword2 }); assert.equal(res.status, 200, await res.clone().text()); userCookie = res.headers.get("set-cookie").split(";")[0];
-    res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.equal(questions.length, 1);
+    res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.ok(questions.length >= 2);
     res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
-    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 404);
+    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question" }, userCookie); assert.equal(res.status, 200);
+    res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === "other-real-question").status, "manual_posted");
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
   } finally { if (child) child.kill(); if (db) await db.end(); try { await pg.stop(); } catch {} if (resolve(dir).startsWith(resolve(tmpdir()) + sep)) await rm(dir, { recursive: true, force: true }); }
 });

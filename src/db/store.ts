@@ -197,6 +197,18 @@ export async function getQuestion(qid: string): Promise<KinQuestion | null> {
   return s.questions.find((q) => q.id === qid) ?? null;
 }
 
+/** A person has checked the original Naver page; this is not automatic verification. */
+export async function setManualAnswerStatus(qid: string, answered: boolean): Promise<boolean> {
+  let found = false;
+  await updateStore(store => {
+    const question = store.questions.find(q => q.id === qid);
+    if (!question) return;
+    found = true;
+    question.status = answered ? "manual_posted" : store.drafts.some(d => d.questionId === qid) ? "drafted" : "new";
+  });
+  return found;
+}
+
 export async function getDraftForQuestion(
   qid: string,
 ): Promise<KinDraft | null> {
@@ -257,8 +269,8 @@ export async function updateDraftStatus(
     if (note) d.reviewerNote = note;
     const q = store.questions.find((x) => x.id === d.questionId);
     if (q) {
-      if (status === "approved" || status === "copied_for_manual_post") {
-        q.status = status === "copied_for_manual_post" ? "manual_posted" : "approved";
+      if (status === "approved") {
+        q.status = "approved";
       } else if (status === "rejected") {
         q.status = "dismissed";
       }
@@ -332,7 +344,7 @@ export async function saveDraftBody(questionId: string, body: string): Promise<K
     const existing = store.drafts.filter(d => d.questionId === questionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (existing) { existing.draftBody = body.trim(); existing.status = "pending_review"; saved = { ...existing }; }
     else { saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString() }; store.drafts.unshift(saved); }
-    question.status = "drafted";
+    if (question.status !== "manual_posted") question.status = "drafted";
   });
   return saved;
 }

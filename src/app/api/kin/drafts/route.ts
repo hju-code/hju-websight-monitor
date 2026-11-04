@@ -2,7 +2,7 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { generateAndStoreDraft, getDraftById, getDraftForQuestion, getQuestion, listAssignees, saveDraftBody, updateDraftStatus } from "../../../../db/store";
+import { generateAndStoreDraft, getDraftById, getDraftForQuestion, getQuestion, listAssignees, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
 import type { DraftStatus } from "../../../../kin/types";
 import type { WebSightUser } from "../../../../auth/types";
 export const dynamic = "force-dynamic";
@@ -20,6 +20,10 @@ export async function POST(req: NextRequest) {
   let questionId = typeof body.questionId === "string" ? body.questionId : undefined;
   if (body.draftId) questionId = (await getDraftById(body.draftId))?.questionId;
   if (!questionId || !(await permitted(user, questionId))) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (body.action === "mark_answered" || body.action === "clear_answered") {
+    const ok = await setManualAnswerStatus(questionId, body.action === "mark_answered");
+    return NextResponse.json({ ok });
+  }
   if (body.action === "generate") return NextResponse.json({ ...(await generateAndStoreDraft(questionId)), autoPostEnabled: false });
   if (body.action === "save" && typeof body.body === "string") {
     try { const draft = await saveDraftBody(questionId, body.body); return NextResponse.json({ ok: true, draft }); }
