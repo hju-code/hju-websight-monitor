@@ -65,9 +65,12 @@ export class AuthService {
       if (!active) await tx.query("DELETE FROM websight.password_sessions WHERE account_id=$1", [id]);
     });
   }
-  async resetPassword(id: string, password: string): Promise<void> {
-    const hash = await hashPassword(password);
+  async resetPassword(id: string): Promise<void> {
     await this.db.transaction(async (tx) => {
+      const account = await tx.query("SELECT email FROM websight.accounts WHERE id=$1 AND role='assignee' FOR UPDATE", [id]);
+      const row = account.rows[0] as { email: string } | undefined;
+      if (!row) throw new Error("user not found");
+      const hash = await hashPassword(`${row.email}123`);
       const result = await tx.query("UPDATE websight.accounts SET password_hash=$2,must_change_password=true,failed_attempts=0,locked_until=NULL,updated_at=now() WHERE id=$1 AND role='assignee' RETURNING id", [id, hash]);
       if (!result.rows.length) throw new Error("user not found");
       await tx.query("DELETE FROM websight.password_sessions WHERE account_id=$1", [id]);

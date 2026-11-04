@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
     if (body.action === "active" && typeof body.id === "string" && typeof body.active === "boolean") {
       await service.setActive(body.id, body.active); return NextResponse.json({ ok: true });
     }
-    if (body.action === "reset" && typeof body.id === "string" && typeof body.password === "string") {
-      await service.resetPassword(body.id, body.password); return NextResponse.json({ ok: true });
+    if (body.action === "reset" && typeof body.id === "string") {
+      await service.resetPassword(body.id); return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "invalid request" }, { status: 400 });
   } catch { return NextResponse.json({ error: "입력값이나 계정 상태를 확인하세요. 비밀번호는 9자 이상이어야 합니다." }, { status: 400 }); }

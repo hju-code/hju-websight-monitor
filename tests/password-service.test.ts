@@ -48,8 +48,10 @@ test("five failed logins lock an account until reset", async () => {
     const account = await auth.createUser("lock@example.org", "initial-password-42");
     for (let i = 0; i < 5; i++) assert.equal(await auth.login("lock@example.org", "incorrect-password"), null);
     assert.equal(await auth.login("lock@example.org", "initial-password-42"), null);
-    await auth.resetPassword(account.id, "reset-password-for-test-42");
-    assert.ok(await auth.login("lock@example.org", "reset-password-for-test-42"));
+    await auth.resetPassword(account.id);
+    const login = await auth.login("lock@example.org", "lock@example.org123");
+    assert.ok(login);
+    assert.equal(login.user.mustChangePassword, true);
   } finally { await db.close(); }
 });
 test("password change rejects repeated incorrect current passwords", async () => {
