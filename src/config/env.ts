@@ -14,8 +14,9 @@ export interface AppEnv {
  * Real remote Postgres URLs still pass through.
  */
 export function resolveDatabaseUrl(): string | undefined {
-  const raw =
-    process.env.WEBSIGHT_DATABASE_URL || process.env.POSTGRES_URL || undefined;
+  const raw = process.env.VERCEL_ENV === "preview"
+    ? process.env.WEBSIGHT_PREVIEW_DATABASE_URL
+    : process.env.WEBSIGHT_DATABASE_URL || process.env.POSTGRES_URL || undefined;
   if (!raw?.trim()) return undefined;
   const onVercel =
     process.env.VERCEL === "1" || process.env.VERCEL === "true";
