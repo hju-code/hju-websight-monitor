@@ -5,7 +5,7 @@ import { NaverKinDetector, hitsToKinQuestions } from "../src/collectors/naver-ki
 
 test("skips confirmed answers and searches additional pages until 30 distinct questions are found", async () => {
   const hits = Array.from({ length: 60 }, (_, i) => ({ rank: i + 1, title: `혜전대 질문 ${i + 1}`, url: `https://kin.naver.com/qna/detail.naver?docId=${i + 1}` }));
-  const confirmed = hitsToKinQuestions(hits.slice(0, 30)).map(q => ({ ...q, status: "manual_posted" as const }));
+  const confirmed = hitsToKinQuestions(hits.slice(0, 30)).map((q, i) => ({ ...q, status: i === 0 ? "dismissed" as const : "manual_posted" as const }));
   const starts: number[] = [];
   const result = await collectUnconfirmedQuestions(["혜전대"], confirmed, async (_keyword, start, size) => {
     starts.push(start);

@@ -7,4 +7,5 @@ test("only manually confirmed replies leave the review queue", () => {
   assert.equal(needsAnswerReview("drafted"), true);
   assert.equal(needsAnswerReview("approved"), true);
   assert.equal(needsAnswerReview("manual_posted"), false);
+  assert.equal(needsAnswerReview("dismissed"), false);
 });

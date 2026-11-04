@@ -46,6 +46,8 @@ export interface KinQuestion {
   status: KinDetectStatus;
   matchedAliases: string[];
   matchedKeywords?: string[];
+  dismissedAt?: string;
+  dismissedBy?: string;
 }
 
 export type DraftStatus =

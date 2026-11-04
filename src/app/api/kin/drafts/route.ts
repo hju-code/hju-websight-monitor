@@ -2,7 +2,7 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, markPostedWithHistory, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, markPostedWithHistory, saveDraftBody, setAnswerNotNeeded, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
 import { aiConfig, detectDepartment, draftFromKnowledge } from "../../../../kin/ai";
 import type { AnswerKnowledge } from "../../../../kin/retrieval";
 import type { DraftStatus } from "../../../../kin/types";
@@ -31,6 +31,10 @@ export async function POST(req: NextRequest) {
   if (body.action === "clear_answered") {
     const ok = await setManualAnswerStatus(questionId, false);
     return NextResponse.json({ ok });
+  }
+  if (body.action === "mark_not_needed") {
+    const ok = await setAnswerNotNeeded(questionId, user.email);
+    return NextResponse.json({ ok }, { status: ok ? 200 : 404 });
   }
   if (body.action === "ai_generate") {
     if (typeof body.topic !== "string" || !body.topic.trim() || body.topic.length > 4000) return NextResponse.json({ error: "질문을 4,000자 이내로 입력해 주세요." }, { status: 400 });

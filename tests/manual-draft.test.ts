@@ -8,8 +8,17 @@ test("a manual answer can be created and edited", async () => {
   process.env.WEBSIGHT_STORE_PATH = join(dir, "data.json");
   process.env.WEBSIGHT_DATABASE_URL = ""; process.env.POSTGRES_URL = "";
   try {
-    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, changeHistoryState, markPostedWithHistory, getQuestion, setManualAnswerStatus, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
+    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, changeHistoryState, markPostedWithHistory, getQuestion, setManualAnswerStatus, setAnswerNotNeeded, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
     await upsertQuestions([{ id: "manual-question", title: "질문", questionText: "", naverUrl: "https://kin.naver.com/test", detectedAt: new Date().toISOString(), matchedAliases: [], status: "new" }]);
+    const draftsBeforeSkip = (await listDraftHistory()).length;
+    assert.equal(await setAnswerNotNeeded("manual-question", "user@example.org"), true);
+    const skipped = await getQuestion("manual-question");
+    assert.equal(skipped?.status, "dismissed");
+    assert.equal(skipped?.dismissedBy, "user@example.org");
+    assert.ok(skipped?.dismissedAt);
+    assert.equal((await listDraftHistory()).length, draftsBeforeSkip);
+    assert.equal(await setManualAnswerStatus("manual-question", false), true);
+    assert.equal((await getQuestion("manual-question"))?.status, "new");
     const first = await saveDraftBody("manual-question", "첫 답변");
     assert.equal(first?.draftBody, "첫 답변");
     const second = await saveDraftBody("manual-question", "수정한 답변");

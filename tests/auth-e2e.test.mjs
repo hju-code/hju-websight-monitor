@@ -58,6 +58,10 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     assert.equal((await (await fetch(base + "/api/knowledge", { headers: { cookie } })).json()).entries.find(k => k.id === knowledge.id).isActive, false);
     assert.equal((await patch(cookie, true)).status, 200);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.ok(questions.length >= 2);
+    res = await post("/api/kin/drafts", { action: "mark_not_needed", questionId: questions[0].id }, userCookie); assert.equal(res.status, 200);
+    res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.match(await res.text(), /답변 필요없는 질문/);
+    res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === questions[0].id).status, "dismissed");
+    res = await post("/api/kin/drafts", { action: "clear_answered", questionId: questions[0].id }, userCookie); assert.equal(res.status, 200);
     res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200); const ownId = (await res.json()).draft.id;
     res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);

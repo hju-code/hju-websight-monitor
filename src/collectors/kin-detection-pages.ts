@@ -1,6 +1,7 @@
 import type { CollectResult } from "./types";
 import type { KinQuestion } from "../kin/types";
 import { hitsToKinQuestions } from "./naver-kin";
+import { needsAnswerReview } from "../kin/review-queue";
 
 /** Confirmed status, not the mere presence of a saved draft, denotes a posted answer. */
 export async function collectUnconfirmedQuestions(
@@ -8,7 +9,7 @@ export async function collectUnconfirmedQuestions(
   fetchPage: (keyword: string, start: number, size: number) => Promise<CollectResult>,
   options: { pageSize: number; maxStart: number } = { pageSize: 100, maxStart: 1000 },
 ) {
-  const confirmed = new Set(existing.filter(q => q.status === "manual_posted").flatMap(q => [q.id, q.naverUrl]));
+  const confirmed = new Set(existing.filter(q => !needsAnswerReview(q.status)).flatMap(q => [q.id, q.naverUrl]));
   const found = new Map<string, KinQuestion>();
   let failures = 0, attempts = 0;
   for (const keyword of keywords) {

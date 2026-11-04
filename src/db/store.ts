@@ -231,6 +231,22 @@ export async function setManualAnswerStatus(qid: string, answered: boolean): Pro
     if (!question) return;
     found = true;
     question.status = answered ? "manual_posted" : store.drafts.some(d => d.questionId === qid && !d.deletedAt) ? "drafted" : "new";
+    delete question.dismissedAt;
+    delete question.dismissedBy;
+  });
+  return found;
+}
+
+export async function setAnswerNotNeeded(qid: string, email: string): Promise<boolean> {
+  let found = false;
+  await updateStore(store => {
+    const question = store.questions.find(q => q.id === qid);
+    if (!question) return;
+    found = true;
+    if (question.status === "dismissed") return;
+    question.status = "dismissed";
+    question.dismissedAt = new Date().toISOString();
+    question.dismissedBy = email.trim().toLowerCase();
   });
   return found;
 }
@@ -249,6 +265,8 @@ export async function markPostedWithHistory(questionId: string, body: string, em
       store.drafts.unshift(result);
     }
     question.status = "manual_posted";
+    delete question.dismissedAt;
+    delete question.dismissedBy;
   });
   return result;
 }
@@ -411,7 +429,7 @@ export async function saveDraftBody(questionId: string, body: string, savedBy?: 
     const owner = savedBy?.trim().toLowerCase();
     saved = owner ? store.drafts.find(d => !d.deletedAt && d.questionId === questionId && d.savedBy?.trim().toLowerCase() === owner && d.draftBody === body.trim()) ?? null : null;
     if (!saved) { saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString(), savedBy: owner }; store.drafts.unshift(saved); }
-    if (question.status !== "manual_posted") question.status = "drafted";
+    if (question.status !== "manual_posted" && question.status !== "dismissed") question.status = "drafted";
   });
   return saved;
 }
