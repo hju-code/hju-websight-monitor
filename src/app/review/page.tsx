@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { canAccessQuestion } from "../../auth/scope";
 import { listQuestions, getDraftForQuestion, listAssignees } from "../../db/store";
+import { needsAnswerReview } from "../../kin/review-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function ReviewInboxPage() {
   const user = await requireRole(["admin", "assignee"]);
   if (!user) redirect("/login");
   const assignments = await listAssignees();
-  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments)).sort((a, b) => Number(a.status === "manual_posted") - Number(b.status === "manual_posted"));
+  const questions = (await listQuestions()).filter(q => canAccessQuestion(user, q, assignments) && needsAnswerReview(q.status));
   const rows = await Promise.all(
     questions.map(async (q) => ({
       q,
@@ -42,7 +43,8 @@ export default async function ReviewInboxPage() {
       )}
 
       <section className="panel">
-        <h2>질문 목록</h2>
+        <h2>답변 확인이 필요한 질문</h2>
+        <p className="muted">답변 확인으로 표시한 질문은 이 목록에서 제외됩니다. 답변 여부를 아직 확인하지 않은 질문이 포함됩니다.</p>
         <p><Link href="/review/history">답변 기록 보기</Link></p>
         <table>
           <thead>
@@ -57,7 +59,7 @@ export default async function ReviewInboxPage() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={4} className="muted">
-                  감지된 질문 없음 — 관리자에서 감지 실행
+                  확인이 필요한 질문이 없습니다. 관리자가 지식iN 감지를 실행하면 새 결과를 확인할 수 있습니다.
                 </td>
               </tr>
             ) : (

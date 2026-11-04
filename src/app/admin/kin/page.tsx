@@ -2,12 +2,14 @@ import { requireRole } from "../../../auth/session";
 import { redirect } from "next/navigation";
 import { KinDetectPanel } from "../../../components/KinDetectPanel";
 import { listQuestions } from "../../../db/store";
+import { needsAnswerReview } from "../../../kin/review-queue";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminKinListPage() {
   if (!(await requireRole(["admin"]))) redirect("/login");
-  const items = await listQuestions();
+  const items = (await listQuestions()).filter(q => needsAnswerReview(q.status));
   return (
     <>
       <p className="page-lead">
@@ -16,7 +18,8 @@ export default async function AdminKinListPage() {
       </p>
 
       <section className="panel">
-        <h2>감지 · 초안</h2>
+        <h2>답변 확인이 필요한 질문</h2>
+        <p className="muted">답변 확인으로 표시한 질문은 제외됩니다. <Link href="/review/history">답변 기록 보기</Link></p>
         <KinDetectPanel latestQuestionId={items[0]?.id} />
         <table>
           <thead>

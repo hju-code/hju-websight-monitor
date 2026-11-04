@@ -76,6 +76,9 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     const sameAnswers = savedState.rows[0].data.drafts.filter(d => d.questionId === "other-real-question" && d.draftBody === "두 번째 기록입니다." && d.savedBy === "user@example.org");
     assert.equal(sameAnswers.length, 1); assert.ok(sameAnswers[0].createdAt);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === "other-real-question").status, "manual_posted");
+    res = await fetch(base + "/review", { headers: { cookie: userCookie } }); assert.doesNotMatch(await res.text(), /다른 질문/);
+    res = await fetch(base + "/admin/kin", { headers: { cookie } }); assert.doesNotMatch(await res.text(), /다른 질문/);
+    res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.match(await res.text(), /다른 질문/);
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
   } finally { if (child) child.kill(); if (db) await db.end(); try { await pg.stop(); } catch {} if (resolve(dir).startsWith(resolve(tmpdir()) + sep)) await rm(dir, { recursive: true, force: true }); }
 });
