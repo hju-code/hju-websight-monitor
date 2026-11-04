@@ -14,23 +14,17 @@ export function KnowledgeForm() {
     setMsg(null);
     const form = e.currentTarget;
     const fd = new FormData(form);
-    const res = await fetch("/api/knowledge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        category: String(fd.get("category")),
-        title: String(fd.get("title")),
-        body: String(fd.get("body")),
-        revisionLabel: String(fd.get("revision") || ""),
-      }),
-    });
-    const json = (await res.json()) as { ok?: boolean; error?: string };
+    let json: { ok?: boolean; error?: string };
+    try {
+      const res = await fetch("/api/knowledge", { method: "POST", body: fd });
+      json = await res.json();
+    } catch { setBusy(false); setMsg("서버에 연결하지 못했습니다."); return; }
     setBusy(false);
     if (!json.ok) {
       setMsg(json.error ?? "저장 실패");
       return;
     }
-    setMsg("저장됨");
+    setMsg("정리 및 저장 완료");
     form.reset();
     router.refresh();
   }
@@ -66,9 +60,10 @@ export function KnowledgeForm() {
           required
         />
       </div>
+      <div className="form-row"><label htmlFor="images">사진 첨부</label><input id="images" name="images" type="file" accept="image/jpeg,image/png" multiple /><span className="muted">JPG 또는 PNG, 최대 2장, 각 750KB. 자료와 함께 GPT로 전송해 내용을 정리합니다.</span></div>
       <div>
         <button type="submit" className="btn" disabled={busy}>
-          {busy ? "저장 중…" : "저장"}
+          {busy ? "자료 정리 중…" : "자료 정리 및 저장"}
         </button>
         {msg ? <span className="muted" style={{ marginLeft: "0.75rem" }}>{msg}</span> : null}
       </div>

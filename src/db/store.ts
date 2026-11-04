@@ -167,6 +167,10 @@ export async function createKnowledge(input: {
   title: string;
   body: string;
   revisionLabel?: string;
+  summary?: string;
+  embedding?: number[];
+  embeddingModel?: string;
+  images?: { type: string; data: string }[];
 }): Promise<KnowledgeEntry> {
   let created!: KnowledgeEntry;
   await updateStore((store) => {
@@ -179,6 +183,10 @@ export async function createKnowledge(input: {
       revisionLabel: input.revisionLabel?.trim() || undefined,
       isActive: true,
       updatedAt: new Date().toISOString(),
+      summary: input.summary,
+      embedding: input.embedding,
+      embeddingModel: input.embeddingModel,
+      images: input.images,
     };
     store.knowledge.unshift(created);
   });

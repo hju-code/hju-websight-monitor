@@ -31,7 +31,7 @@ after(async () => {
   if (tempDir) await rm(tempDir, { recursive: true, force: true });
 });
 
-for (const path of ["/api/assignees", "/api/knowledge", "/api/kin/detect", "/api/kin/drafts?questionId=fixture"]) {
+for (const path of ["/api/assignees", "/api/knowledge", "/api/knowledge/image?id=fixture&index=0", "/api/kin/detect", "/api/kin/drafts?questionId=fixture"]) {
   test(`anonymous GET ${path} is denied`, async () => {
     const response = await fetch(base + path, { redirect: "manual" });
     assert.ok([401, 403].includes(response.status), `expected denial, got ${response.status}`);

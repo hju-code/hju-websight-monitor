@@ -3,8 +3,10 @@ import { requireRole } from "../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { createKnowledge, listKnowledge } from "../../../db/store";
 import type { KnowledgeCategory } from "../../../kin/types";
+import { prepareKnowledge } from "../../../kin/ai";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET() {
   if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -19,11 +21,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (Number(req.headers.get("content-length") || 0) > 2 * 1024 * 1024) return NextResponse.json({ ok: false, error: "첨부 파일 크기가 너무 큽니다." }, { status: 413 });
   const contentType = req.headers.get("content-type") || "";
   let category: KnowledgeCategory = "other";
   let title = "";
   let body = "";
   let revisionLabel = "";
+  const images: { type: string; data: string }[] = [];
 
   if (contentType.includes("application/json")) {
     const json = (await req.json()) as {
@@ -33,16 +37,25 @@ export async function POST(req: NextRequest) {
       revisionLabel?: string;
       revision?: string;
     };
-    category = json.category ?? "other";
-    title = json.title ?? "";
-    body = json.body ?? "";
-    revisionLabel = json.revisionLabel ?? json.revision ?? "";
+    category = typeof json.category === "string" ? json.category : "other";
+    title = typeof json.title === "string" ? json.title : "";
+    body = typeof json.body === "string" ? json.body : "";
+    revisionLabel = typeof json.revisionLabel === "string" ? json.revisionLabel : typeof json.revision === "string" ? json.revision : "";
   } else {
     const fd = await req.formData();
     category = String(fd.get("category") ?? "other") as KnowledgeCategory;
     title = String(fd.get("title") ?? "");
     body = String(fd.get("body") ?? "");
     revisionLabel = String(fd.get("revision") ?? fd.get("revisionLabel") ?? "");
+    const files = fd.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+    if (files.length > 2 || files.some(f => f.size > 750 * 1024)) return NextResponse.json({ ok: false, error: "사진은 최대 2장, 각 750KB까지 첨부할 수 있습니다." }, { status: 400 });
+    for (const file of files) {
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const jpg = bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const png = bytes.length > 8 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+      if (!jpg && !png) return NextResponse.json({ ok: false, error: "JPG 또는 PNG 사진만 첨부할 수 있습니다." }, { status: 400 });
+      images.push({ type: jpg ? "image/jpeg" : "image/png", data: bytes.toString("base64") });
+    }
   }
 
   if (!title.trim() || !body.trim()) {
@@ -52,11 +65,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (title.length > 200 || body.length > 20000 || revisionLabel.length > 100 || !["department", "admission", "tuition", "campus", "other"].includes(category)) return NextResponse.json({ ok: false, error: "입력 내용이 너무 길거나 구분이 올바르지 않습니다." }, { status: 400 });
+
+  let prepared;
+  try { prepared = await prepareKnowledge(title, body, images); }
+  catch (error) { return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "자료를 정리하지 못했습니다." }, { status: 503 }); }
+
   const entry = await createKnowledge({
     category,
     title,
     body,
     revisionLabel: revisionLabel || undefined,
+    ...prepared,
+    images,
   });
 
   return NextResponse.json({

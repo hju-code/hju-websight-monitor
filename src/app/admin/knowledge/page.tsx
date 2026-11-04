@@ -12,9 +12,7 @@ export default async function AdminKnowledgePage() {
   return (
     <>
       <p className="page-lead">
-        관리자가 혜전대(해전대=혜전대) <strong>학과·입시 정보</strong>를 직접
-        입력하고 매년/주기적으로 갱신합니다. 이 데이터가 지식iN 초안 생성의
-        유일한 근거입니다.
+        학교 자료와 사진을 등록하면 GPT가 주요 내용을 정리하고 검색용 정보로 저장합니다. 생성된 정리 내용은 반드시 원본과 비교해 확인해 주세요.
       </p>
 
       <section className="panel">
@@ -36,6 +34,10 @@ export default async function AdminKnowledgePage() {
                 {new Date(k.updatedAt).toLocaleDateString("ko-KR")}
               </p>
               <p style={{ marginBottom: 0, whiteSpace: "pre-wrap" }}>{k.body}</p>
+              {k.summary && <><h4>AI 정리 내용</h4><p style={{ whiteSpace: "pre-wrap" }}>{k.summary}</p></>}
+              {!k.embedding && <p className="muted">기존 자료: AI 검색 정보가 없습니다. 새로 등록해 주세요.</p>}
+              {k.images?.length ? <p className="muted">첨부 사진 {k.images.length}장 보관됨</p> : null}
+              {k.images?.map((_, i) => <p key={i}><a href={`/api/knowledge/image?id=${encodeURIComponent(k.id)}&index=${i}`} target="_blank" rel="noopener noreferrer">첨부 사진 {i + 1} 보기</a></p>)}
             </article>
           ))}
         </div>

@@ -2,10 +2,12 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { generateAndStoreDraft, getDraftById, getDraftForQuestion, getQuestion, listAssignees, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { generateAndStoreDraft, getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { aiConfig, draftFromKnowledge } from "../../../../kin/ai";
 import type { DraftStatus } from "../../../../kin/types";
 import type { WebSightUser } from "../../../../auth/types";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 async function permitted(user: WebSightUser, questionId: string): Promise<boolean> {
   const question = await getQuestion(questionId);
   return !!question && canAccessQuestion(user, question, await listAssignees());
@@ -15,7 +17,7 @@ export async function POST(req: NextRequest) {
   const user = await requireRole(["admin", "assignee"]);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "unsupported" }, { status: 415 });
-  const body = await req.json().catch(() => null) as { action?: string; questionId?: string; draftId?: string; body?: string; note?: string } | null;
+  const body = await req.json().catch(() => null) as { action?: string; questionId?: string; draftId?: string; body?: string; note?: string; topic?: string } | null;
   if (!body) return NextResponse.json({ error: "invalid request" }, { status: 400 });
   let questionId = typeof body.questionId === "string" ? body.questionId : undefined;
   if (body.draftId) questionId = (await getDraftById(body.draftId))?.questionId;
@@ -23,6 +25,17 @@ export async function POST(req: NextRequest) {
   if (body.action === "mark_answered" || body.action === "clear_answered") {
     const ok = await setManualAnswerStatus(questionId, body.action === "mark_answered");
     return NextResponse.json({ ok });
+  }
+  if (body.action === "ai_generate") {
+    if (typeof body.topic !== "string" || !body.topic.trim() || body.topic.length > 400) return NextResponse.json({ error: "학교 업무 주제를 400자 이내로 입력해 주세요." }, { status: 400 });
+    try {
+      const model = aiConfig().embeddingModel;
+      const entries = (await listKnowledge()).filter(k => k.isActive && k.summary && k.embedding?.length && k.embeddingModel === model).map(k => ({ title: k.title, summary: k.summary!, embedding: k.embedding! }));
+      if (!entries.length) return NextResponse.json({ error: "AI 검색용 학교 자료가 없습니다. 관리자에게 자료 등록을 요청해 주세요." }, { status: 400 });
+      const result = await draftFromKnowledge(body.topic.trim(), entries);
+      const draft = await saveDraftBody(questionId, result.answer);
+      return NextResponse.json({ ok: true, draft, sources: result.sources });
+    } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "초안을 생성하지 못했습니다." }, { status: 503 }); }
   }
   if (body.action === "generate") return NextResponse.json({ ...(await generateAndStoreDraft(questionId)), autoPostEnabled: false });
   if (body.action === "save" && typeof body.body === "string") {

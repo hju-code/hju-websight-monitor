@@ -23,6 +23,10 @@ export interface KnowledgeEntry {
   isActive: boolean;
   updatedAt: string; // ISO
   updatedBy?: string;
+  summary?: string;
+  embedding?: number[];
+  embeddingModel?: string;
+  images?: { type: string; data: string }[];
 }
 
 export type KinDetectStatus = "new" | "drafted" | "approved" | "dismissed" | "manual_posted";
