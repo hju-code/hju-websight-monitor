@@ -8,11 +8,13 @@ test("a manual answer can be created and edited", async () => {
   process.env.WEBSIGHT_STORE_PATH = join(dir, "data.json");
   process.env.WEBSIGHT_DATABASE_URL = ""; process.env.POSTGRES_URL = "";
   try {
-    const { upsertQuestions, saveDraftBody, getDraftForQuestion, getQuestion, setManualAnswerStatus, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
+    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, getQuestion, setManualAnswerStatus, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
     await upsertQuestions([{ id: "manual-question", title: "질문", questionText: "", naverUrl: "https://kin.naver.com/test", detectedAt: new Date().toISOString(), matchedAliases: [], status: "new" }]);
     const first = await saveDraftBody("manual-question", "첫 답변");
     assert.equal(first?.draftBody, "첫 답변");
-    await saveDraftBody("manual-question", "수정한 답변");
+    const second = await saveDraftBody("manual-question", "수정한 답변");
+    assert.notEqual(first?.id, second?.id);
+    assert.equal((await listDraftHistory()).filter(d => d.questionId === "manual-question").length, 2);
     assert.equal((await getDraftForQuestion("manual-question"))?.draftBody, "수정한 답변");
     assert.equal(await setManualAnswerStatus("manual-question", true), true);
     assert.equal((await getQuestion("manual-question"))?.status, "manual_posted");

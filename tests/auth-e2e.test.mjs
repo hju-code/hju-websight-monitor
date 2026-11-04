@@ -60,6 +60,9 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const questions = (await res.json()).questions; assert.ok(questions.length >= 2);
     res = await post("/api/kin/drafts", { action: "save", questionId: questions[0].id, body: "답변입니다." }, userCookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "답변입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "save", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); const historyHtml = await res.text(); assert.match(historyHtml, /답변입니다/); assert.match(historyHtml, /두 번째 기록입니다/);
+    res = await fetch(base + "/review/other-real-question", { headers: { cookie: userCookie } }); assert.equal(res.status, 200); assert.doesNotMatch(await res.text(), /두 번째 기록입니다/);
     res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question" }, userCookie); assert.equal(res.status, 200);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === "other-real-question").status, "manual_posted");
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);

@@ -243,6 +243,11 @@ export async function getDraftForQuestion(
   return drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 }
 
+export async function listDraftHistory(): Promise<KinDraft[]> {
+  const store = await readStore();
+  return [...store.drafts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export async function upsertQuestions(questions: KinQuestion[]): Promise<number> {
   let added = 0;
   await updateStore((store) => {
@@ -361,15 +366,14 @@ export async function getDraftById(draftId: string): Promise<KinDraft | null> {
   const store = await readStore();
   return store.drafts.find(d => d.id === draftId) ?? null;
 }
-export async function saveDraftBody(questionId: string, body: string): Promise<KinDraft | null> {
+export async function saveDraftBody(questionId: string, body: string, savedBy?: string): Promise<KinDraft | null> {
   if (!body.trim() || body.length > 20000) throw new Error("answer required (maximum 20000 characters)");
   let saved: KinDraft | null = null;
   await updateStore(store => {
     const question = store.questions.find(q => q.id === questionId);
     if (!question) return;
-    const existing = store.drafts.filter(d => d.questionId === questionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    if (existing) { existing.draftBody = body.trim(); existing.status = "pending_review"; saved = { ...existing }; }
-    else { saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString() }; store.drafts.unshift(saved); }
+    saved = { id: id("draft"), questionId, draftBody: body.trim(), sourceKnowledgeIds: [], status: "pending_review", createdAt: new Date().toISOString(), savedBy };
+    store.drafts.unshift(saved);
     if (question.status !== "manual_posted") question.status = "drafted";
   });
   return saved;

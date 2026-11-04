@@ -1,5 +1,6 @@
 import { requireRole } from "../../auth/session";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { canAccessQuestion } from "../../auth/scope";
 import { listQuestions, getDraftForQuestion, listAssignees } from "../../db/store";
 
@@ -42,12 +43,13 @@ export default async function ReviewInboxPage() {
 
       <section className="panel">
         <h2>질문 목록</h2>
+        <p><Link href="/review/history">답변 기록 보기</Link></p>
         <table>
           <thead>
             <tr>
               <th>질문</th>
               <th>혜전대학교 답변</th>
-              <th>초안</th>
+              <th>저장 기록</th>
               <th></th>
             </tr>
           </thead>
@@ -65,9 +67,9 @@ export default async function ReviewInboxPage() {
                   <td>
                     <span className="badge warn">{q.status === "manual_posted" ? "확인됨 (담당자 표시)" : "미확인"}</span>
                   </td>
-                  <td className="muted">{draft ? draft.status : "없음"}</td>
+                  <td className="muted">{draft ? "있음" : "없음"}</td>
                   <td>
-                    <a href={`/review/${q.id}`}>나란히 검토</a>
+                    <a href={`/review/${q.id}`}>답변 작성</a>
                   </td>
                 </tr>
               ))

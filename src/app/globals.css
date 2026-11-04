@@ -342,12 +342,16 @@ ol.checklist {
   align-items: start;
 }
 
-@media (min-width: 860px) {
-  .review-split {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-5);
-  }
-}
+@media (min-width: 860px) { .review-split { gap: var(--space-5); } }
+
+.answer-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0; margin: 20px 0 24px; list-style: none; }
+.answer-steps li { position: relative; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.answer-steps li:not(:last-child)::after { content: "→"; position: absolute; right: -12px; top: 50%; z-index: 1; transform: translateY(-50%); color: var(--accent); font-weight: 700; }
+.answer-steps strong, .answer-steps span { display: block; }
+.answer-steps strong { color: var(--accent); margin-bottom: 4px; }
+.answer-steps span { font-size: .88rem; color: var(--text-secondary); }
+.admin-form textarea.answer-editor { min-height: 360px; resize: vertical; }
+@media (max-width: 760px) { .answer-steps { grid-template-columns: 1fr; } .answer-steps li:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -18px; transform: translateX(50%); } }
 
 .review-pane {
   background: var(--surface);

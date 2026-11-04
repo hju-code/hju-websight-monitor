@@ -4,7 +4,6 @@ import { canAccessQuestion } from "../../../auth/scope";
 import { redirect, notFound } from "next/navigation";
 import { KinReviewSplit } from "../../../components/KinReviewSplit";
 import {
-  getDraftForQuestion,
   getQuestion,
   listAssignees,
   listKnowledge,
@@ -27,7 +26,6 @@ export default async function ReviewDetailPage({ params }: Props) {
     );
   }
   if (!canAccessQuestion(user, question, await listAssignees())) notFound();
-  const draft = await getDraftForQuestion(id);
   const departments = [...new Set((await listKnowledge()).filter(k => k.isActive && k.category === "department" && k.departmentName && k.embedding?.length).map(k => k.departmentName!))].sort((a, b) => a.localeCompare(b, "ko"));
 
   return (
@@ -36,7 +34,7 @@ export default async function ReviewDetailPage({ params }: Props) {
         혜전대학교 지식iN 초안 검토 (담당자). 승인 저장 또는 네이버에서 직접
         붙여넣기. <strong>자동 게시 금지.</strong>
       </p>
-      <KinReviewSplit question={question} draft={draft} departments={departments} />
+      <KinReviewSplit question={question} departments={departments} />
     </>
   );
 }

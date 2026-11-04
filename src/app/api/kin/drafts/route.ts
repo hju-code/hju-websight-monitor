@@ -2,7 +2,7 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { generateAndStoreDraft, getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, saveDraftBody, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
 import { aiConfig, detectDepartment, draftFromKnowledge } from "../../../../kin/ai";
 import type { AnswerKnowledge } from "../../../../kin/retrieval";
 import type { DraftStatus } from "../../../../kin/types";
@@ -51,13 +51,11 @@ export async function POST(req: NextRequest) {
         return [];
       });
       const result = await draftFromKnowledge(body.topic.trim(), entries, department, scope, typeof body.body === "string" ? body.body.trim() : "");
-      const draft = await saveDraftBody(questionId, result.answer);
-      return NextResponse.json({ ok: true, draft });
+      return NextResponse.json({ ok: true, answer: result.answer });
     } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "초안을 생성하지 못했습니다." }, { status: 503 }); }
   }
-  if (body.action === "generate") return NextResponse.json({ ...(await generateAndStoreDraft(questionId)), autoPostEnabled: false });
   if (body.action === "save" && typeof body.body === "string") {
-    try { const draft = await saveDraftBody(questionId, body.body); return NextResponse.json({ ok: true, draft }); }
+    try { const draft = await saveDraftBody(questionId, body.body, user.email); return NextResponse.json({ ok: true, draft }); }
     catch { return NextResponse.json({ error: "답변 내용을 확인해 주세요." }, { status: 400 }); }
   }
   const statuses: Record<string, DraftStatus> = { approve: "approved", reject: "rejected", copied_for_manual_post: "copied_for_manual_post" };

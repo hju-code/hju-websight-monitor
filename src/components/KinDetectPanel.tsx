@@ -30,31 +30,6 @@ export function KinDetectPanel({ latestQuestionId }: { latestQuestionId?: string
     router.refresh();
   }
 
-  async function draftLatest() {
-    setBusy(true);
-    const res = await fetch("/api/kin/drafts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "generate", questionId: latestQuestionId }),
-    });
-    const json = (await res.json()) as {
-      ok?: boolean;
-      draft?: { questionId: string };
-      errorMessage?: string;
-    };
-    setBusy(false);
-    if (!json.ok) {
-      setMsg(json.errorMessage ?? "초안 실패");
-      return;
-    }
-    setMsg("초안 생성됨");
-    if (json.draft?.questionId) {
-      router.push(`/admin/kin/${json.draft.questionId}`);
-    } else {
-      router.refresh();
-    }
-  }
-
   return (
     <div className="review-actions" style={{ marginBottom: "1rem" }}>
       <button type="button" className="btn" disabled={busy} onClick={() => void detect()}>
@@ -64,9 +39,9 @@ export function KinDetectPanel({ latestQuestionId }: { latestQuestionId?: string
         type="button"
         className="btn btn-secondary"
         disabled={busy || !latestQuestionId}
-        onClick={() => void draftLatest()}
+        onClick={() => router.push(`/admin/kin/${latestQuestionId}`)}
       >
-        최신 질문 초안 생성
+        최신 질문 답변 작성
       </button>
       {msg ? <span className="muted">{msg}</span> : null}
     </div>
