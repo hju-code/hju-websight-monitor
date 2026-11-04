@@ -40,7 +40,12 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 409, await res.clone().text()); await db.query("ROLLBACK");
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 200, await res.clone().text()); assert.ok((await res.json()).failures > 0);
     assert.equal((await fetch(base + "/api/cron/daily")).status, 401);
+    const expiredQuestion = { id: "expired-fixture", naverUrl: "https://kin.naver.com/expired", title: "만료 질문", questionText: "", detectedAt: "2020-01-01T00:00:00Z", status: "manual_posted", matchedAliases: [] };
+    const expiredDraft = { id: "expired-draft", questionId: "expired-fixture", draftBody: "기록", createdAt: new Date().toISOString(), sourceKnowledgeIds: [], status: "pending_review" };
+    await db.query("UPDATE websight.app_state SET data=jsonb_set(jsonb_set(data, '{questions}', data->'questions' || $1::jsonb), '{drafts}', data->'drafts' || $2::jsonb) WHERE id=1", [JSON.stringify([expiredQuestion]), JSON.stringify([expiredDraft])]);
     res = await fetch(base + "/api/cron/daily", { headers: { authorization: "Bearer test-cron-secret-123456" } }); assert.equal(res.status, 200, await res.clone().text());
+    const cleanState = (await db.query("SELECT data FROM websight.app_state WHERE id=1")).rows[0].data;
+    assert.ok(!cleanState.questions.some(q => q.id === "expired-fixture")); assert.ok(!cleanState.drafts.some(d => d.id === "expired-draft"));
     res = await post("/api/users", { action: "create", email: "user@example.org", name: "담당자", password: userPassword1 }, cookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/assignees", { assigneeEmail: "user@example.org", keywordPhrase: "혜전대학교", siteKey: "naver-kin" }, cookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/kin/detect", {}, cookie); assert.equal(res.status, 200, await res.clone().text());

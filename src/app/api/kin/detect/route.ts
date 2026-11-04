@@ -11,6 +11,7 @@ import {
   listAssignees,
   listKeywordsFromStore,
   upsertQuestions,
+  deleteExpiredKinRecords,
 } from "../../../../db/store";
 import type { KinQuestion } from "../../../../kin/types";
 
@@ -50,6 +51,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await deleteExpiredKinRecords();
   const detector = new NaverKinDetector();
   let detected: KinQuestion[] = [];
   let mode: "live" | "stub" = "stub";

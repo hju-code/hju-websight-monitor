@@ -9,6 +9,7 @@ import { listKeywords, listRecentRanks } from "./repository";
 import type { AssignmentScope, WebSightUser } from "../auth/types";
 import { defaultEnabledPlatforms } from "../config/platforms";
 import { generateDraftFromKnowledge } from "../kin/draft";
+import { purgeExpiredKinRecords } from "../kin/retention";
 import type {
   DraftStatus,
   KnowledgeCategory,
@@ -216,6 +217,18 @@ export async function listQuestions(): Promise<KinQuestion[]> {
   return [...s.questions].sort((a, b) =>
     b.detectedAt.localeCompare(a.detectedAt),
   );
+}
+
+/** Remove both search-derived question details and associated answer records. */
+export async function deleteExpiredKinRecords(): Promise<{ questions: number; drafts: number }> {
+  let deleted = { questions: 0, drafts: 0 };
+  await updateStore(store => {
+    const kept = purgeExpiredKinRecords(store.questions, store.drafts);
+    deleted = { questions: store.questions.length - kept.questions.length, drafts: store.drafts.length - kept.drafts.length };
+    store.questions = kept.questions;
+    store.drafts = kept.drafts;
+  });
+  return deleted;
 }
 
 export async function getQuestion(qid: string): Promise<KinQuestion | null> {
