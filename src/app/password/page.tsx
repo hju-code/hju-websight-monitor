@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PasswordInput } from "../../components/PasswordInput";
 export default function PasswordPage() {
   const router = useRouter(); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -13,10 +14,10 @@ export default function PasswordPage() {
       router.push("/login?passwordChanged=1"); router.refresh();
     } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
-  return <section className="panel"><h2>비밀번호 변경</h2><p>새 비밀번호는 15자 이상이어야 합니다. 변경 후 다시 로그인해 주세요.</p><form className="admin-form" onSubmit={submit}>
-    <div className="form-row"><label htmlFor="current">현재 비밀번호</label><input id="current" name="current" type="password" autoComplete="current-password" required /></div>
-    <div className="form-row"><label htmlFor="next">새 비밀번호</label><input id="next" name="next" type="password" autoComplete="new-password" minLength={15} required /></div>
-    <div className="form-row"><label htmlFor="confirm">새 비밀번호 확인</label><input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={15} required /></div>
+  return <section className="panel"><h2>비밀번호 변경</h2><p>새 비밀번호는 12자 이상이어야 합니다. 변경 후 다시 로그인해 주세요.</p><form className="admin-form" onSubmit={submit}>
+    <div className="form-row"><label htmlFor="current">현재 비밀번호</label><PasswordInput id="current" name="current" autoComplete="current-password" required /></div>
+    <div className="form-row"><label htmlFor="next">새 비밀번호</label><PasswordInput id="next" name="next" autoComplete="new-password" minLength={12} required /></div>
+    <div className="form-row"><label htmlFor="confirm">새 비밀번호 확인</label><PasswordInput id="confirm" name="confirm" autoComplete="new-password" minLength={12} required /></div>
     <button className="btn" disabled={busy}>비밀번호 변경</button>{message && <p role="alert">{message}</p>}
   </form></section>;
 }
