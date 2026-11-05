@@ -114,6 +114,15 @@ export async function deleteExpiredSnapshots(): Promise<number> {
   return rowCount ?? 0;
 }
 
+/** Finish time of the last scheduled or manual collection that produced results. */
+export async function getLastCollectionRun(): Promise<string | undefined> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ at: Date | null }>(
+    `SELECT max(finished_at) AS at FROM websight.runs WHERE status IN ('ok', 'partial') AND triggered_by IN ('schedule', 'manual')`,
+  );
+  return rows[0]?.at ? new Date(rows[0].at).toISOString() : undefined;
+}
+
 export async function listKeywords() {
   const pool = getPool();
   const { rows } = await pool.query(

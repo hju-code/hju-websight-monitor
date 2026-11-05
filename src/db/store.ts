@@ -5,7 +5,7 @@
 import { randomBytes } from "crypto";
 import { resolveDatabaseUrl } from "../config/env";
 import { getPool } from "./pool";
-import { listKeywords, listRecentRanks } from "./repository";
+import { getLastCollectionRun, listKeywords, listRecentRanks } from "./repository";
 import type { AssignmentScope, WebSightUser } from "../auth/types";
 import { defaultEnabledPlatforms } from "../config/platforms";
 import { generateDraftFromKnowledge } from "../kin/draft";
@@ -124,6 +124,14 @@ export async function listRanksFromStore(limit = 100): Promise<RankRecord[]> {
     }))
     .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt))
     .slice(0, limit);
+}
+
+/** Last rank collection shown on screen: the recorded run, or the newest stored live result when that is later. */
+export async function getLastRankCollection(): Promise<string | undefined> {
+  const run = resolveDatabaseUrl() ? await getLastCollectionRun() : undefined;
+  const newest = (await listRanksFromStore(1)).find(r => r.source === "live")?.collectedAt;
+  const times = [run, newest].filter((t): t is string => !!t && Number.isFinite(Date.parse(t)));
+  return times.length ? times.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a)) : undefined;
 }
 
 export async function statsSummary() {
@@ -305,8 +313,21 @@ export async function markPostedWithHistory(questionId: string, body: string, em
   return result;
 }
 
-/** Last successful Kin detection, whether scheduled or manual. */
+/**
+ * Last successful Kin detection, whether scheduled or manual.
+ * Runs before lastRunAt was recorded are known only through the questions they added,
+ * so the newest question detection time is used when it is later than the recorded run.
+ */
 export async function getLastKinDetection(): Promise<string | undefined> {
+  const store = await readStore();
+  const times = [store.kinDetection?.lastRunAt, ...store.questions.map(q => q.detectedAt)]
+    .filter((t): t is string => !!t && Number.isFinite(Date.parse(t)));
+  if (!times.length) return undefined;
+  return times.reduce((latest, t) => (Date.parse(t) > Date.parse(latest) ? t : latest));
+}
+
+/** Only runs recorded since tracking began; used for the manual cooldown so old question times never block a run. */
+export async function getRecordedKinDetection(): Promise<string | undefined> {
   return (await readStore()).kinDetection?.lastRunAt;
 }
 

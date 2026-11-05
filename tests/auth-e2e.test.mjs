@@ -94,6 +94,10 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await fetch(base + "/admin/kin", { headers: { cookie } }); assert.doesNotMatch(await res.text(), /다른 질문/);
     res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.match(await res.text(), /다른 질문/);
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
+    res = await fetch(base + "/api/runs?dry=1", { method: "POST", headers: { cookie: userCookie } }); assert.equal(res.status, 403, await res.clone().text());
+    res = await fetch(base + "/api/runs", { method: "POST", headers: { cookie: userCookie } }); assert.equal(res.status, 200, await res.clone().text());
+    res = await fetch(base + "/stats", { headers: { cookie: userCookie } }); { const statsText = (await res.text()).replace(/<!-- -->/g, ""); assert.match(statsText, /자동 수집: 매주 월요일 오전 6시 45분/); assert.match(statsText, /지금 수집/); }
+    res = await fetch(base + "/stats"); assert.doesNotMatch(await res.text(), /지금 수집/);
     res = await post("/api/kin/detect", {}, userCookie); assert.equal(res.status, 429, await res.clone().text());
     await db.query("UPDATE websight.app_state SET data=data - 'kinDetection' WHERE id=1");
     res = await post("/api/kin/detect", {}, userCookie); assert.equal(res.status, 200, await res.clone().text()); const detectedAt = (await res.json()).lastRunAt; assert.ok(detectedAt);
