@@ -1,7 +1,7 @@
 import { detectionOutcome } from "../collectors/detection-outcome";
 import { NaverKinDetector } from "../collectors/naver-kin";
 import { collectUnconfirmedQuestions } from "../collectors/kin-detection-pages";
-import { deleteExpiredKinRecords, getLastKinDetection, listKeywordsFromStore, listQuestions, recordKinDetection, upsertQuestions } from "../db/store";
+import { deleteExpiredKinRecords, getRecordedKinDetection, listKeywordsFromStore, listQuestions, recordKinDetection, upsertQuestions } from "../db/store";
 import type { KinQuestion } from "../kin/types";
 import { withKinDetectionLock } from "./exclusive";
 
@@ -43,7 +43,7 @@ export function cooldownRemaining(lastRunAt: string | undefined, cooldownMinutes
 export async function runKinDetection(opts: { allowStub: boolean; cooldownMinutes?: number }): Promise<KinDetectionResult> {
   const locked = await withKinDetectionLock(async (): Promise<KinDetectionResult> => {
     if (opts.cooldownMinutes) {
-      const retryAfterMinutes = cooldownRemaining(await getLastKinDetection(), opts.cooldownMinutes);
+      const retryAfterMinutes = cooldownRemaining(await getRecordedKinDetection(), opts.cooldownMinutes);
       if (retryAfterMinutes) return { ok: false, reason: "cooldown", retryAfterMinutes };
     }
     await deleteExpiredKinRecords();
