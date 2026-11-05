@@ -8,7 +8,7 @@ test("a manual answer can be created and edited", async () => {
   process.env.WEBSIGHT_STORE_PATH = join(dir, "data.json");
   process.env.WEBSIGHT_DATABASE_URL = ""; process.env.POSTGRES_URL = "";
   try {
-    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, changeHistoryState, markPostedWithHistory, getQuestion, setManualAnswerStatus, setAnswerNotNeeded, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
+    const { upsertQuestions, saveDraftBody, getDraftForQuestion, listDraftHistory, changeHistoryState, markPostedWithHistory, getQuestion, setManualAnswerStatus, setAnswerNotNeeded, setQuestionDate, listReviewPeriods, createKnowledge, setKnowledgeActive, listKnowledge } = await import("../src/db/store");
     await upsertQuestions([{ id: "manual-question", title: "질문", questionText: "", naverUrl: "https://kin.naver.com/test", detectedAt: new Date().toISOString(), matchedAliases: [], status: "new" }]);
     const draftsBeforeSkip = (await listDraftHistory()).length;
     assert.equal(await setAnswerNotNeeded("manual-question", "user@example.org"), true);
@@ -38,10 +38,12 @@ test("a manual answer can be created and edited", async () => {
     assert.equal(await setManualAnswerStatus("manual-question", false), true);
     assert.equal((await getQuestion("manual-question"))?.status, "drafted");
     assert.equal(await setManualAnswerStatus("missing", true), false);
-    const posted = await markPostedWithHistory("manual-question", "게시 답변", "user@example.org");
+    await setQuestionDate("manual-question", "2026-01-02");
+    const posted = await markPostedWithHistory("manual-question", "게시 답변", "user@example.org", "2026-01-03");
     assert.equal(posted?.savedBy, "user@example.org");
     assert.ok(posted?.createdAt);
     const again = await markPostedWithHistory("manual-question", "게시 답변", "user@example.org");
+    assert.deepEqual(await listReviewPeriods(), [{ source: "네이버 지식iN", questionDate: "2026-01-02", answerDate: "2026-01-03" }]);
     assert.equal(again?.id, posted?.id);
     assert.equal((await listDraftHistory()).filter(d => d.questionId === "manual-question" && d.draftBody === "게시 답변").length, 1);
     await assert.rejects(markPostedWithHistory("manual-question", "  ", "user@example.org"));

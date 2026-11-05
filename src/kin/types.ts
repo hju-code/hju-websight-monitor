@@ -46,6 +46,7 @@ export interface KinQuestion {
   status: KinDetectStatus;
   matchedAliases: string[];
   matchedKeywords?: string[];
+  questionDate?: string;
   dismissedAt?: string;
   dismissedBy?: string;
 }

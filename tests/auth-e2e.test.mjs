@@ -40,16 +40,18 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 409, await res.clone().text()); await db.query("ROLLBACK");
     res = await post("/api/runs", {}, cookie); assert.equal(res.status, 200, await res.clone().text()); assert.ok((await res.json()).failures > 0);
     assert.equal((await fetch(base + "/api/cron/daily")).status, 401);
+    assert.equal((await fetch(base + "/api/cron/weekly")).status, 401);
     const expiredQuestion = { id: "expired-fixture", naverUrl: "https://kin.naver.com/expired", title: "만료 질문", questionText: "", detectedAt: "2020-01-01T00:00:00Z", status: "manual_posted", matchedAliases: [] };
     const expiredDraft = { id: "expired-draft", questionId: "expired-fixture", draftBody: "기록", createdAt: new Date().toISOString(), sourceKnowledgeIds: [], status: "pending_review" };
     await db.query("UPDATE websight.app_state SET data=jsonb_set(jsonb_set(data, '{questions}', data->'questions' || $1::jsonb), '{drafts}', data->'drafts' || $2::jsonb) WHERE id=1", [JSON.stringify([expiredQuestion]), JSON.stringify([expiredDraft])]);
-    res = await fetch(base + "/api/cron/daily", { headers: { authorization: "Bearer test-cron-secret-123456" } }); assert.equal(res.status, 200, await res.clone().text());
+    res = await fetch(base + "/api/cron/daily", { headers: { authorization: "Bearer test-cron-secret-123456" } }); assert.equal(res.status, 200, await res.clone().text()); assert.equal((await res.json()).kin.reason, "not_configured");
     const cleanState = (await db.query("SELECT data FROM websight.app_state WHERE id=1")).rows[0].data;
     assert.ok(!cleanState.questions.some(q => q.id === "expired-fixture")); assert.ok(!cleanState.drafts.some(d => d.id === "expired-draft"));
     res = await post("/api/users", { action: "create", email: "user@example.org", name: "담당자", password: userPassword1 }, cookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/assignees", { assigneeEmail: "user@example.org", keywordPhrase: "혜전대학교", siteKey: "naver-kin" }, cookie); assert.equal(res.status, 200, await res.clone().text());
     res = await post("/api/kin/detect", {}, cookie); assert.equal(res.status, 200, await res.clone().text());
-    const other = { id: "other-real-question", naverUrl: "https://kin.naver.com/other", title: "다른 질문", questionText: "내용", detectedAt: "2026-10-01T00:00:00Z", status: "new", matchedAliases: [], matchedKeywords: ["다른 키워드"] };
+    res = await post("/api/kin/detect", {}, cookie); assert.equal(res.status, 429, await res.clone().text());
+    const other = { id: "other-real-question", naverUrl: "https://kin.naver.com/other", title: "다른 질문", questionText: "내용", detectedAt: new Date().toISOString(), status: "new", matchedAliases: [], matchedKeywords: ["다른 키워드"] };
     await db.query("UPDATE websight.app_state SET data=jsonb_set(data, '{questions}', data->'questions' || $1::jsonb) WHERE id=1", [JSON.stringify([other])]);
     res = await fetch(base + "/api/users", { method: "POST", headers: { cookie, "content-type": "application/json", origin: "https://attacker.example" }, body: JSON.stringify({ action: "create" }) }); assert.equal(res.status, 403);
     res = await post("/api/auth", { email: "user@example.org", password: userPassword1 }); assert.equal(res.status, 200, await res.clone().text()); let userCookie = res.headers.get("set-cookie").split(";")[0];
@@ -79,9 +81,12 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await post("/api/kin/history", { action: "restore", ids: [ownId] }, cookie); assert.equal(res.status, 200);
     res = await post("/api/kin/history", { action: "delete", ids: [adminId] }, cookie); assert.equal(res.status, 200);
     res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question" }, userCookie); assert.equal(res.status, 400);
-    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "set_question_date", questionId: "other-real-question", questionDate: "2026-02-30" }, userCookie); assert.equal(res.status, 400);
+    res = await post("/api/kin/drafts", { action: "set_question_date", questionId: "other-real-question", questionDate: "2020-01-02" }, userCookie); assert.equal(res.status, 200);
+    res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question", body: "두 번째 기록입니다.", answerDate: "2020-01-03" }, userCookie); assert.equal(res.status, 200);
     res = await post("/api/kin/drafts", { action: "mark_answered", questionId: "other-real-question", body: "두 번째 기록입니다." }, userCookie); assert.equal(res.status, 200);
     const savedState = await db.query("SELECT data FROM websight.app_state WHERE id=1");
+    assert.deepEqual(savedState.rows[0].data.reviewPeriods, [{ source: "네이버 지식iN", questionDate: "2020-01-02", answerDate: "2020-01-03" }]);
     const sameAnswers = savedState.rows[0].data.drafts.filter(d => d.questionId === "other-real-question" && d.draftBody === "두 번째 기록입니다." && d.savedBy === "user@example.org");
     assert.equal(sameAnswers.length, 1); assert.ok(sameAnswers[0].createdAt);
     res = await fetch(base + "/api/kin/detect", { headers: { cookie: userCookie } }); assert.equal((await res.json()).questions.find(q => q.id === "other-real-question").status, "manual_posted");
@@ -89,5 +94,9 @@ test("admin bootstrap, password changes, user assignment and scoped answers", { 
     res = await fetch(base + "/admin/kin", { headers: { cookie } }); assert.doesNotMatch(await res.text(), /다른 질문/);
     res = await fetch(base + "/review/history", { headers: { cookie: userCookie } }); assert.match(await res.text(), /다른 질문/);
     assert.equal((await fetch(base + "/api/users", { headers: { cookie: userCookie } })).status, 401);
+    res = await post("/api/kin/detect", {}, userCookie); assert.equal(res.status, 429, await res.clone().text());
+    await db.query("UPDATE websight.app_state SET data=data - 'kinDetection' WHERE id=1");
+    res = await post("/api/kin/detect", {}, userCookie); assert.equal(res.status, 200, await res.clone().text()); const detectedAt = (await res.json()).lastRunAt; assert.ok(detectedAt);
+    res = await fetch(base + "/review", { headers: { cookie: userCookie } }); const reviewHtml = await res.text(); const reviewText = reviewHtml.replace(/<!-- -->/g, ""); assert.match(reviewText, /자동 감지: 매일 오전 6시 15분/); assert.match(reviewText, /최종 감지: \d{4}/);
   } finally { if (child) child.kill(); if (db) await db.end(); try { await pg.stop(); } catch {} if (resolve(dir).startsWith(resolve(tmpdir()) + sep)) await rm(dir, { recursive: true, force: true }); }
 });

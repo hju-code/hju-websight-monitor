@@ -3,21 +3,35 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { KinQuestion } from "../kin/types";
+import { seoulToday } from "../kin/question-date";
 export function KinReviewSplit({ question, departments }: { question: KinQuestion; departments: string[] }) {
   const [text, setText] = useState("");
+  const [questionDate, setQuestionDate] = useState(question.questionDate ?? "");
+  const [answerDate, setAnswerDate] = useState(seoulToday);
   const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false); const router = useRouter();
   const [topic, setTopic] = useState("");
   const [department, setDepartment] = useState("");
   const [rewriteScope, setRewriteScope] = useState("university");
+  async function saveQuestionDate() {
+    if (questionDate === (question.questionDate ?? "")) return;
+    const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "set_question_date", questionId: question.id, questionDate }) });
+    if (!response.ok) { const result = await response.json(); throw new Error(result.error || "질문 작성일을 저장하지 못했습니다."); }
+  }
+  async function saveDateOnly() {
+    setBusy(true); setMessage("");
+    try { await saveQuestionDate(); setMessage("질문 작성일을 저장했습니다."); router.refresh(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "질문 작성일을 저장하지 못했습니다."); } finally { setBusy(false); }
+  }
   async function send(action: string, scope = "auto") {
     setBusy(true); setMessage("");
     try {
+      if (action === "save") await saveQuestionDate();
       const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, questionId: question.id, body: action === "ai_generate" && scope === "auto" ? "" : text, topic: action === "ai_generate" ? topic : undefined, department: action === "ai_generate" ? department : undefined, scope: action === "ai_generate" ? scope : undefined }) });
       const result = await response.json();
       if (!response.ok || !result.ok) { setMessage(result.error || result.errorMessage || "처리하지 못했습니다."); return; }
       if (action === "ai_generate") { setText(result.answer); setMessage("답변을 생성했습니다. 내용을 확인해 주세요."); }
       else { setMessage("답변 기록에 저장했습니다."); router.refresh(); }
-    } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(text); setMessage("복사했습니다. 네이버에서 직접 붙여넣어 주세요."); } catch { setMessage("복사하지 못했습니다. 내용을 직접 선택해 복사해 주세요."); }
@@ -27,25 +41,28 @@ export function KinReviewSplit({ question, departments }: { question: KinQuestio
     if (answered && !window.confirm("네이버 원문에서 혜전대학교 답변을 직접 확인했습니까?")) return;
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: answered ? "mark_answered" : "clear_answered", questionId: question.id, body: answered ? text : undefined }) });
+      if (answered) await saveQuestionDate();
+      const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: answered ? "mark_answered" : "clear_answered", questionId: question.id, body: answered ? text : undefined, answerDate: answered ? answerDate : undefined }) });
       const result = await response.json();
       if (!response.ok) { setMessage(result.error || "답변 상태를 저장하지 못했습니다."); return; }
       setMessage(answered ? "답변 확인 상태와 기록을 저장했습니다." : "답변 확인 표시를 해제했습니다."); router.refresh();
-    } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
   async function markNotNeeded() {
     if (!window.confirm("이 질문을 답변이 필요 없는 항목으로 표시하시겠습니까?")) return;
     setBusy(true); setMessage("");
     try {
+      await saveQuestionDate();
       const response = await fetch("/api/kin/drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mark_not_needed", questionId: question.id }) });
       const result = await response.json();
       if (!response.ok) { setMessage(result.error || "상태를 저장하지 못했습니다."); return; }
       setMessage("답변 필요없음으로 표시했습니다. 답변 기록에서 확인할 수 있습니다."); router.refresh();
-    } catch { setMessage("서버에 연결하지 못했습니다."); } finally { setBusy(false); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "서버에 연결하지 못했습니다."); } finally { setBusy(false); }
   }
   return <div className="review-split">
-    <section className="review-pane"><h2>질문</h2><h3>{question.title}</h3><p className="muted">감지 일시: {new Date(question.detectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} · 질문 작성일은 네이버 원문에서 확인해 주세요.</p><p className="review-body">{question.questionText}</p><p><a href={question.naverUrl} target="_blank" rel="noopener noreferrer">네이버에서 질문과 답변 확인하기 ↗</a></p><p>{question.status === "manual_posted" ? "혜전대학교 답변 확인됨 (담당자 표시)" : question.status === "dismissed" ? "답변 필요없음 (담당자 표시)" : "혜전대학교 답변 여부 미확인"}</p><div className="review-actions">{question.status === "manual_posted" || question.status === "dismissed" ? <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(false)}>표시 해제</button> : <><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(true)}>혜전대학교 답변 확인 표시</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void markNotNeeded()}>답변 필요없음 표시</button></>}</div><p className="muted">답변을 작성한 경우 답변 확인을, 답변할 필요가 없는 질문은 답변 필요없음을 눌러주세요.</p>{message && <p role="status">{message}</p>}</section>
+    <section className="review-pane"><h2>질문</h2><h3>{question.title}</h3><p className="muted">감지 일시: {new Date(question.detectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} · 네이버 원문에서 확인한 질문 작성일을 답변 작성 칸의 날짜 입력란에 기록해 주세요.</p><p className="review-body">{question.questionText}</p><p><a href={question.naverUrl} target="_blank" rel="noopener noreferrer">네이버에서 질문과 답변 확인하기 ↗</a></p><p>{question.status === "manual_posted" ? "혜전대학교 답변 확인됨 (담당자 표시)" : question.status === "dismissed" ? "답변 필요없음 (담당자 표시)" : "혜전대학교 답변 여부 미확인"}</p><div className="review-actions">{question.status === "manual_posted" || question.status === "dismissed" ? <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(false)}>표시 해제</button> : <><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void markAnswer(true)}>혜전대학교 답변 확인 표시</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void markNotNeeded()}>답변 필요없음 표시</button></>}</div><p className="muted">답변을 작성한 경우 답변 확인을, 답변할 필요가 없는 질문은 답변 필요없음을 눌러주세요.</p>{message && <p role="status">{message}</p>}</section>
     <section className="review-pane review-pane-draft"><h2>답변 작성</h2><p className="muted">질문을 입력한 뒤 답변을 생성하고, 확인 후 네이버에서 직접 게시하세요.</p>
+      <div className="admin-form"><label htmlFor="question-date">질문 작성일 (선택)</label><input id="question-date" type="date" value={questionDate} onChange={event => setQuestionDate(event.target.value)} /><label htmlFor="answer-date">네이버 답변 입력일</label><input id="answer-date" type="date" value={answerDate} onChange={event => setAnswerDate(event.target.value)} /><p className="muted">네이버 원문에서 확인한 날짜를 입력하세요. 답변 확인 표시 시 두 날짜가 검토 기간 참고용으로 저장됩니다. 날짜 범위가 모든 질문의 검토 완료를 뜻하지는 않습니다.</p><button type="button" className="btn btn-ghost" disabled={busy || questionDate === (question.questionDate ?? "")} onClick={() => void saveDateOnly()}>질문 작성일 저장</button></div>
       <ol className="answer-steps" aria-label="답변 작성 순서"><li><strong>1. 질문 확인</strong><span>네이버에서 질문을 열어 내용을 확인합니다.</span></li><li><strong>2. 질문 붙여넣기</strong><span>질문을 복사해 아래 입력칸에 붙여넣습니다.</span></li><li><strong>3. 답변 생성·검토</strong><span>답변 생성 버튼을 누르고 내용을 확인합니다.</span></li><li><strong>4. 네이버에 등록</strong><span>검토한 답변을 복사해 네이버에서 직접 작성합니다.</span></li></ol>
       <div className="admin-form"><label htmlFor="ai-topic">질문 입력</label><textarea id="ai-topic" value={topic} onChange={e => setTopic(e.target.value)} maxLength={4000} placeholder="네이버에서 확인한 질문을 복사해 붙여넣어 주세요." /><p className="muted">답변 생성 시 입력한 질문과 학교 자료가 GPT로 전달됩니다.</p></div>
       <div className="review-actions"><button className="btn btn-secondary" disabled={busy || !topic.trim()} onClick={() => void send("ai_generate")}>{busy ? "처리 중…" : "답변 생성"}</button></div>
