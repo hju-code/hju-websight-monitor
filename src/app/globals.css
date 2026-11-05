@@ -669,3 +669,20 @@ input, textarea, select { min-height: 44px; }
 }
 /* Keeps absolutely positioned helpers (e.g. .visually-hidden) inside the scroll box instead of widening the page. */
 .table-scroll { position: relative; }
+
+/* —— Review page summary bar (detection + review period) —— */
+.info-bar { margin: 0 0 20px; padding: 6px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); font-size: .9rem; }
+.info-bar-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 8px 0; }
+.info-bar-sub { border-top: 1px solid #edf2f4; }
+.info-bar-text { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--text-secondary); }
+.info-bar-text strong { color: var(--text); font-size: .9rem; min-width: 7.5em; }
+.info-bar-text span + span::before { content: "·"; margin-right: 14px; color: var(--border-strong); }
+.detect-compact { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.info-bar-more { font-size: .85rem; }
+.info-bar-more summary { cursor: pointer; color: var(--accent); font-weight: 650; list-style: none; }
+.info-bar-more summary::-webkit-details-marker { display: none; }
+.info-bar-more summary::after { content: " ▾"; }
+.info-bar-more[open] summary::after { content: " ▴"; }
+.info-bar-more[open] { flex-basis: 100%; }
+.info-bar-more ul { margin: 8px 0 4px; padding-left: 1.1rem; color: var(--text-secondary); line-height: 1.65; }
+@media (max-width: 720px) { .info-bar { padding: 4px 14px; } .info-bar-text { flex-direction: column; align-items: flex-start; } .info-bar-text span + span::before { content: none; } }
