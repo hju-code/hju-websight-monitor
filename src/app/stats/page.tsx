@@ -1,3 +1,4 @@
+import { PageHeader } from "../../components/PageHeader";
 import { UniversityComparison } from "./UniversityComparison";
 import { getPublicStats } from "../../db/live-stats";
 import { rankKeywordsByCount } from "../../stats/keyword-ranking";
@@ -8,13 +9,13 @@ export const maxDuration = 60;
 /** Public view of persisted search data. */
 export default async function PublicStatsPage() {
   const summary = await getPublicStats().catch(() => null);
-  if (!summary) return <><div className="dashboard-intro"><p>혜전대학교</p><h1>검색 현황</h1><span>충청권 전문대학의 검색 관심도를 비교하세요.</span></div><section className="panel"><h2>검색 순위 요약</h2><p>저장된 검색 결과를 불러올 수 없습니다. 잠시 후 다시 확인해 주세요.</p></section><UniversityComparison /></>;
+  if (!summary) return <><PageHeader eyebrow="혜전대학교" title="검색 현황">충청권 전문대학의 검색 관심도를 비교하세요.</PageHeader><section className="panel"><h2>검색 순위 요약</h2><p>저장된 검색 결과를 불러올 수 없습니다. 잠시 후 다시 확인해 주세요.</p></section><UniversityComparison /></>;
   const isLive = summary.mode === "fresh_live" || summary.mode === "stored_live";
   const rankedRows = rankKeywordsByCount(summary.rows);
 
   return (
     <>
-      <div className="dashboard-intro"><p>혜전대학교</p><h1>검색 현황</h1><span>우리 대학의 검색 결과와 충청권 전문대학의 관심도를 살펴보세요.</span></div>
+      <PageHeader eyebrow="혜전대학교" title="검색 현황">우리 대학의 검색 결과와 충청권 전문대학의 관심도를 살펴보세요.</PageHeader>
 
       <section className="panel">
         <h2>키워드별 검색결과 비교</h2>

@@ -5,6 +5,7 @@ import { getLastKinDetection, listQuestions } from "../../../db/store";
 import { DAILY_CRON } from "../../../config/schedule";
 import { needsAnswerReview } from "../../../kin/review-queue";
 import Link from "next/link";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,7 @@ export default async function AdminKinListPage() {
   const lastDetection = await getLastKinDetection();
   return (
     <>
-      <p className="page-lead">
-        네이버 지식iN에서 혜전대 관련 새 글을 감지한 목록입니다. 초안 생성 후
-        관리자가 검토하며, <strong>답글 자동 게시는 없습니다</strong>.
-      </p>
+      <PageHeader eyebrow="관리" title="지식iN 감지">네이버 지식iN에서 혜전대 관련 질문을 감지한 전체 목록입니다. 답글은 자동으로 게시하지 않습니다.</PageHeader>
 
       <section className="panel">
         <h2>답변 확인이 필요한 질문</h2>

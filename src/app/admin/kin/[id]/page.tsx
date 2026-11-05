@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "../../../../auth/session";
 import { redirect } from "next/navigation";
 import { KinReviewSplit } from "../../../../components/KinReviewSplit";
+import { PageHeader } from "../../../../components/PageHeader";
 import {
   getQuestion,
   listKnowledge,
@@ -27,9 +28,7 @@ export default async function AdminKinDetailPage({ params }: Props) {
   const departments = [...new Set((await listKnowledge()).filter(k => k.isActive && k.category === "department" && k.departmentName && k.embedding?.length).map(k => k.departmentName!))].sort((a, b) => a.localeCompare(b, "ko"));
   return (
     <>
-      <p className="page-lead">
-        관리자 검토 — 혜전대학교 지식iN. <strong>자동 게시 금지.</strong>
-      </p>
+      <PageHeader eyebrow="관리 · 지식iN 감지" title="질문 검토">답변을 작성해 검토한 뒤 네이버에서 직접 게시합니다. 자동 게시는 하지 않습니다.</PageHeader>
       <KinReviewSplit question={question} departments={departments} />
     </>
   );

@@ -2,6 +2,7 @@ import { requireRole } from "../../../auth/session";
 import { redirect } from "next/navigation";
 import { AssigneeForm } from "../../../components/AssigneeForm";
 import { listAssignees } from "../../../db/store";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,7 @@ export default async function AdminAssigneesPage() {
   const assignments = await listAssignees();
   return (
     <>
-      <p className="page-lead">
-        사이트/키워드별 <strong>답변 담당자</strong>와 <strong>이메일</strong>을
-        등록합니다. 담당자는 본인 이메일로 로그인해 배정된 초안만 검토·작성합니다.
-      </p>
+      <PageHeader eyebrow="관리" title="담당자 배정">사이트·키워드별 답변 담당자를 지정합니다. 담당자는 본인 계정으로 로그인해 배정된 질문만 검토·작성합니다.</PageHeader>
 
       <section className="panel">
         <h2>담당자 배정</h2>
