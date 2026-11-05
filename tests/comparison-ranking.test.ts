@@ -19,3 +19,13 @@ test("sorts both directions and always keeps missing values last", () => {
   assert.deepEqual(sortBy(rows, "trend", "asc").map(r => r.university), ["D", "A", "C", "B"]);
   assert.deepEqual(sortBy(rows, "searchResults", "desc").map(r => r.university), ["B", "C", "A", "D"]);
 });
+
+test("default comparison view ranks by search results descending", () => {
+  const ordered = sortBy(rows, "searchResults", "desc");
+  const ranks = rankBy(rows, "searchResults");
+  assert.deepEqual(ordered.map((r) => r.university), ["B", "C", "A", "D"]);
+  assert.equal(ranks.get("B"), 1);
+  assert.equal(ranks.get("C"), 1);
+  assert.equal(ranks.get("A"), 3);
+  assert.equal(ranks.get("D"), undefined);
+});

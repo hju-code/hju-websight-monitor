@@ -687,6 +687,36 @@ input, textarea, select { min-height: 44px; }
 .info-bar-more ul { margin: 8px 0 4px; padding-left: 1.1rem; color: var(--text-secondary); line-height: 1.65; }
 @media (max-width: 720px) { .info-bar { padding: 4px 14px; } .info-bar-text { flex-direction: column; align-items: flex-start; } .info-bar-text span + span::before { content: none; } }
 
+/* —— Keyword table: soft site-group tint (daum / naver) —— */
+.site-group td {
+  background: color-mix(in srgb, var(--site-tint, transparent) 100%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--site-tint-strong, var(--border)) 35%, var(--border));
+}
+.site-group td:first-child {
+  box-shadow: inset 3px 0 0 var(--site-tint-strong, transparent);
+  padding-left: 0.55rem;
+}
+.site-group--daum {
+  --site-tint: #f3efe6;
+  --site-tint-strong: #b08948;
+}
+.site-group--naver {
+  --site-tint: #e8f2ec;
+  --site-tint-strong: #2f6b4f;
+}
+.site-group--other {
+  --site-tint: #eef1f4;
+  --site-tint-strong: #5b6b78;
+}
+.site-group--start td {
+  border-top: 1px solid color-mix(in srgb, var(--site-tint-strong) 28%, var(--border));
+}
+.site-label {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
 /* —— University comparison: ranks and sorting —— */
 .sort-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 12px; font-size: .86rem; }
 .sort-toolbar .muted { margin-right: 4px; }
@@ -696,6 +726,5 @@ input, textarea, select { min-height: 44px; }
 .th-sort { border: 0; background: none; padding: 0; font: inherit; color: inherit; font-weight: inherit; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 .th-sort:hover { color: var(--accent); }
 .comparison-table td { font-variant-numeric: tabular-nums; }
-.rank-chip { display: inline-block; min-width: 2.6em; margin-right: 8px; padding: 1px 7px; border-radius: 6px; background: #eef3f5; color: var(--text-secondary); font-size: .78rem; font-weight: 700; text-align: center; }
+.comparison-table .rank-cell { width: 3.5rem; white-space: nowrap; }
 .comparison-table tr.is-home td { background: color-mix(in srgb, var(--accent-soft) 55%, white); font-weight: 650; }
-.comparison-table tr.is-home .rank-chip { background: var(--accent); color: #fff; }

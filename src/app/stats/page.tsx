@@ -7,6 +7,14 @@ import { rankKeywordsByCount } from "../../stats/keyword-ranking";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** Soft row tint key for daum / naver / other engines. */
+function siteGroupTone(engine: string): "daum" | "naver" | "other" {
+  const key = engine.trim().toLowerCase();
+  if (key === "daum") return "daum";
+  if (key === "naver") return "naver";
+  return "other";
+}
+
 /** Public view of persisted search data. */
 export default async function PublicStatsPage() {
   const summary = await getPublicStats().catch(() => null);
@@ -43,50 +51,59 @@ export default async function PublicStatsPage() {
                 </td>
               </tr>
             ) : (
-              rankedRows.map((r) => (
-                <tr key={`${r.phrase}-${r.engine}-${r.tab}-${r.id}`}>
-                  <td>{r.phrase}</td>
-                  <td>
-                    {r.engine} / {r.tab}
-                  </td>
-                  <td>
-                    {r.keywordRank != null ? (
-                      <strong>{r.keywordRank}위</strong>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {r.resultTotal != null ? (
-                      <strong>{r.resultTotal.toLocaleString("ko-KR")}</strong>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        r.schoolStatus === "ok" ? "ok" : "warn"
-                      }`}
-                    >
-                      {{ ok: "확인", not_found: "미발견", error: "오류", skipped: "미수집" }[r.schoolStatus]}
-                    </span>
-                    {r.source === "sample" ? (
-                      <>
-                        {" "}
-                        <span className="badge">예시</span>
-                      </>
-                    ) : null}
-                    {r.source === "live" ? (
-                      <>
-                        {" "}
-                        <span className="badge ok">수집</span>
-                      </>
-                    ) : null}
-                  </td>
-                  <td className="muted">{new Date(r.collectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</td>
-                </tr>
-              ))
+              rankedRows.map((r, index) => {
+                const prev = index > 0 ? rankedRows[index - 1] : null;
+                const groupStart = !prev || prev.engine !== r.engine || prev.tab !== r.tab;
+                const siteTone = siteGroupTone(r.engine);
+                return (
+                  <tr
+                    key={`${r.phrase}-${r.engine}-${r.tab}-${r.id}`}
+                    className={`site-group site-group--${siteTone}${groupStart ? " site-group--start" : ""}`}
+                    data-site={r.engine}
+                  >
+                    <td>{r.phrase}</td>
+                    <td>
+                      <span className="site-label">{r.engine} / {r.tab}</span>
+                    </td>
+                    <td>
+                      {r.keywordRank != null ? (
+                        <strong>{r.keywordRank}위</strong>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.resultTotal != null ? (
+                        <strong>{r.resultTotal.toLocaleString("ko-KR")}</strong>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          r.schoolStatus === "ok" ? "ok" : "warn"
+                        }`}
+                      >
+                        {{ ok: "확인", not_found: "미발견", error: "오류", skipped: "미수집" }[r.schoolStatus]}
+                      </span>
+                      {r.source === "sample" ? (
+                        <>
+                          {" "}
+                          <span className="badge">예시</span>
+                        </>
+                      ) : null}
+                      {r.source === "live" ? (
+                        <>
+                          {" "}
+                          <span className="badge ok">수집</span>
+                        </>
+                      ) : null}
+                    </td>
+                    <td className="muted">{new Date(r.collectedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
