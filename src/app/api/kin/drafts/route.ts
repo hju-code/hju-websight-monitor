@@ -2,7 +2,8 @@ import { isSafeMutation } from "../../../../auth/csrf";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../../../auth/session";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, markPostedWithHistory, saveDraftBody, setAnswerNotNeeded, setManualAnswerStatus, updateDraftStatus } from "../../../../db/store";
+import { getDraftById, getDraftForQuestion, getQuestion, listAssignees, listKnowledge, markPostedWithHistory, saveDraftBody, setAnswerNotNeeded, setManualAnswerStatus, setQuestionDate, updateDraftStatus } from "../../../../db/store";
+import { seoulToday, validQuestionDate } from "../../../../kin/question-date";
 import { aiConfig, detectDepartment, draftFromKnowledge } from "../../../../kin/ai";
 import type { AnswerKnowledge } from "../../../../kin/retrieval";
 import type { DraftStatus } from "../../../../kin/types";
@@ -18,14 +19,24 @@ export async function POST(req: NextRequest) {
   const user = await requireRole(["admin", "assignee"]);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "unsupported" }, { status: 415 });
-  const body = await req.json().catch(() => null) as { action?: string; questionId?: string; draftId?: string; body?: string; note?: string; topic?: string; department?: unknown; scope?: unknown } | null;
+  const body = await req.json().catch(() => null) as { action?: string; questionId?: string; questionDate?: unknown; answerDate?: unknown; draftId?: string; body?: string; note?: string; topic?: string; department?: unknown; scope?: unknown } | null;
   if (!body) return NextResponse.json({ error: "invalid request" }, { status: 400 });
   let questionId = typeof body.questionId === "string" ? body.questionId : undefined;
   if (body.draftId) questionId = (await getDraftById(body.draftId))?.questionId;
   if (!questionId || !(await permitted(user, questionId))) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (body.action === "set_question_date") {
+    const today = seoulToday();
+    if (typeof body.questionDate !== "string" || (body.questionDate !== "" && !validQuestionDate(body.questionDate, today))) return NextResponse.json({ error: "올바른 질문 작성일을 입력해 주세요." }, { status: 400 });
+    const ok = await setQuestionDate(questionId, body.questionDate);
+    return NextResponse.json({ ok }, { status: ok ? 200 : 404 });
+  }
   if (body.action === "mark_answered") {
     if (typeof body.body !== "string" || !body.body.trim() || body.body.length > 20000) return NextResponse.json({ error: "기록할 답변 내용을 입력한 후 확인 표시를 눌러 주세요." }, { status: 400 });
-    try { const draft = await markPostedWithHistory(questionId, body.body, user.email); return NextResponse.json({ ok: !!draft }, { status: draft ? 200 : 404 }); }
+    const today = seoulToday();
+    if (body.answerDate !== undefined && (typeof body.answerDate !== "string" || !validQuestionDate(body.answerDate, today))) return NextResponse.json({ error: "올바른 답변 입력일을 선택해 주세요." }, { status: 400 });
+    const question = await getQuestion(questionId);
+    if (question?.questionDate && typeof body.answerDate === "string" && body.answerDate < question.questionDate) return NextResponse.json({ error: "답변 입력일은 질문 작성일보다 빠를 수 없습니다." }, { status: 400 });
+    try { const draft = await markPostedWithHistory(questionId, body.body, user.email, body.answerDate as string | undefined); return NextResponse.json({ ok: !!draft }, { status: draft ? 200 : 404 }); }
     catch { return NextResponse.json({ error: "답변 기록을 저장하지 못했습니다." }, { status: 500 }); }
   }
   if (body.action === "clear_answered") {

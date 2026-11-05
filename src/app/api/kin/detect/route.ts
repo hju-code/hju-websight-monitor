@@ -1,37 +1,13 @@
-import { detectionOutcome } from "../../../../collectors/detection-outcome";
 import { isSafeMutation } from "../../../../auth/csrf";
 import { requireRole } from "../../../../auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { canAccessQuestion } from "../../../../auth/scope";
-import { NaverKinDetector } from "../../../../collectors/naver-kin";
-import { collectUnconfirmedQuestions } from "../../../../collectors/kin-detection-pages";
-
-import {
-  listQuestions,
-  listAssignees,
-  listKeywordsFromStore,
-  upsertQuestions,
-  deleteExpiredKinRecords,
-} from "../../../../db/store";
-import type { KinQuestion } from "../../../../kin/types";
+import { listQuestions, listAssignees } from "../../../../db/store";
+import { runKinDetection } from "../../../../jobs/kin-detect";
+import { MANUAL_KIN_COOLDOWN_MINUTES } from "../../../../config/schedule";
 
 export const dynamic = "force-dynamic";
-
-function stubQuestions(): KinQuestion[] {
-  const now = new Date().toISOString();
-  return [
-    {
-      id: `kin-stub-${Date.now()}`,
-      naverUrl: "https://kin.naver.com/qna/detail.naver?d1id=11&dirId=1108&docId=stub",
-      title: "혜전대 수시 전형 일정이 궁금해요",
-      questionText:
-        "해전대(=혜전대) 2027 수시 원서 접수 기간과 간호학과 모집 요강이 어디에 있나요?",
-      detectedAt: now,
-      status: "new",
-      matchedAliases: ["해전대", "혜전대"],
-    },
-  ];
-}
+export const maxDuration = 60;
 
 /**
  * List / trigger Kin detection. Never publishes answers to Naver.
@@ -48,57 +24,23 @@ export async function GET() {
   });
 }
 
+/** Admins and assignees may run detection on demand; results stay scoped by assignment when listed. */
 export async function POST(req: NextRequest) {
   if (!isSafeMutation(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  if (!(await requireRole(["admin"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await deleteExpiredKinRecords();
-  const detector = new NaverKinDetector();
-  let detected: KinQuestion[] = [];
-  let mode: "live" | "stub" = "stub";
-  let failures = 0; let attempts = 0;
-
-  const hasKeys =
-    Boolean(process.env.NAVER_CLIENT_ID) &&
-    Boolean(process.env.NAVER_CLIENT_SECRET);
-
-  if (hasKeys) {
-    mode = "live";
-    const keywords = (await listKeywordsFromStore()).filter(k => k.is_active).map(k => k.phrase);
-    const result = await collectUnconfirmedQuestions(keywords, await listQuestions(), (keyword, start, size) =>
-      detector.collect({
-        keyword,
-        engine: "naver",
-        tab: "kin",
-        device: "desktop",
-        scanDepth: size,
-        start,
-        retainRaw: "none",
-      }));
-    detected = result.questions;
-    failures = result.failures;
-    attempts = result.attempts;
-  } else {
-    if (process.env.NODE_ENV === "production") return NextResponse.json({ ok: false, error: "네이버 API 설정이 필요합니다." }, { status: 503 });
-    attempts = 1;
-    detected = stubQuestions().map(q => ({ ...q, matchedKeywords: ["혜전대학교", "혜전대"] }));
+  if (!(await requireRole(["admin", "assignee"]))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const result = await runKinDetection({ allowStub: true, cooldownMinutes: MANUAL_KIN_COOLDOWN_MINUTES });
+  if (!result.ok) {
+    if (result.reason === "cooldown") return NextResponse.json({ ok: false, error: `최근 감지 결과가 있습니다. ${result.retryAfterMinutes}분 후 다시 시도해 주세요.` }, { status: 429, headers: { "retry-after": String(result.retryAfterMinutes * 60) } });
+    if (result.reason === "busy") return NextResponse.json({ ok: false, error: "다른 감지가 실행 중입니다. 잠시 후 다시 시도해 주세요." }, { status: 409 });
+    return result.reason === "not_configured"
+      ? NextResponse.json({ ok: false, error: "네이버 API 설정이 필요합니다." }, { status: 503 })
+      : NextResponse.json({ ok: false, error: "질문을 조회하지 못했습니다. 검색 API와 활성 키워드를 확인해 주세요." }, { status: 503 });
   }
-
-  const outcome = detectionOutcome(failures, attempts);
-  if (!outcome.ok) return NextResponse.json({ ok: false, error: "질문을 조회하지 못했습니다. 검색 API와 활성 키워드를 확인해 주세요." }, { status: 503 });
-  const added = await upsertQuestions(detected);
-  const questions = await listQuestions();
-
   return NextResponse.json({
-    ok: true,
+    ...result,
     autoPostEnabled: false,
-    mode,
-    partial: outcome.partial,
-    failures,
-    detected: detected.length,
-    added,
-    questions: questions.slice(0, 20),
     note:
-      mode === "stub"
+      result.mode === "stub"
         ? "NAVER_* 미설정 — 스텁 질문 추가. 실API는 키 설정 후 동일 엔드포인트."
         : "네이버 지식iN 검색 API 결과 반영. 자동 게시 없음.",
   });

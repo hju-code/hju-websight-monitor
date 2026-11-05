@@ -24,6 +24,12 @@ import {
   type RankRecord,
 } from "./file-store";
 
+/** Hides Kin records past retention even before the daily cleanup deletes them. */
+async function readLiveStore() {
+  const store = await readStore();
+  return { ...store, ...purgeExpiredKinRecords(store.questions, store.drafts) };
+}
+
 function id(prefix: string) {
   return `${prefix}-${randomBytes(6).toString("hex")}`;
 }
@@ -213,7 +219,7 @@ export async function createKnowledge(input: {
 }
 
 export async function listQuestions(): Promise<KinQuestion[]> {
-  const s = await readStore();
+  const s = await readLiveStore();
   return [...s.questions].sort((a, b) =>
     b.detectedAt.localeCompare(a.detectedAt),
   );
@@ -232,8 +238,19 @@ export async function deleteExpiredKinRecords(): Promise<{ questions: number; dr
 }
 
 export async function getQuestion(qid: string): Promise<KinQuestion | null> {
-  const s = await readStore();
+  const s = await readLiveStore();
   return s.questions.find((q) => q.id === qid) ?? null;
+}
+
+export async function setQuestionDate(qid: string, date: string): Promise<boolean> {
+  let found = false;
+  await updateStore(store => {
+    const question = store.questions.find(q => q.id === qid);
+    if (!question) return;
+    found = true;
+    if (date) question.questionDate = date; else delete question.questionDate;
+  });
+  return found;
 }
 
 /** A person has checked the original Naver page; this is not automatic verification. */
@@ -265,7 +282,7 @@ export async function setAnswerNotNeeded(qid: string, email: string): Promise<bo
 }
 
 /** Marking a published answer and saving its history are a single atomic update. */
-export async function markPostedWithHistory(questionId: string, body: string, email: string): Promise<KinDraft | null> {
+export async function markPostedWithHistory(questionId: string, body: string, email: string, answerDate?: string): Promise<KinDraft | null> {
   if (!body.trim() || body.length > 20000 || !email.trim()) throw new Error("답변 내용을 확인해 주세요.");
   let result: KinDraft | null = null;
   await updateStore(store => {
@@ -278,22 +295,39 @@ export async function markPostedWithHistory(questionId: string, body: string, em
       store.drafts.unshift(result);
     }
     question.status = "manual_posted";
+    if (question.questionDate && answerDate) {
+      const periods = store.reviewPeriods ??= [];
+      if (!periods.some(p => p.questionDate === question.questionDate && p.answerDate === answerDate && p.source === "네이버 지식iN")) periods.push({ source: "네이버 지식iN", questionDate: question.questionDate, answerDate });
+    }
     delete question.dismissedAt;
     delete question.dismissedBy;
   });
   return result;
 }
 
+/** Last successful Kin detection, whether scheduled or manual. */
+export async function getLastKinDetection(): Promise<string | undefined> {
+  return (await readStore()).kinDetection?.lastRunAt;
+}
+
+export async function recordKinDetection(at = new Date().toISOString()): Promise<void> {
+  await updateStore(store => { store.kinDetection = { lastRunAt: at }; });
+}
+
+export async function listReviewPeriods() {
+  return (await readStore()).reviewPeriods ?? [];
+}
+
 export async function getDraftForQuestion(
   qid: string,
 ): Promise<KinDraft | null> {
-  const s = await readStore();
+  const s = await readLiveStore();
   const drafts = s.drafts.filter((d) => d.questionId === qid && !d.deletedAt);
   return drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 }
 
 export async function listDraftHistory(): Promise<KinDraft[]> {
-  const store = await readStore();
+  const store = await readLiveStore();
   return [...store.drafts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -430,7 +464,7 @@ export async function listUsers(): Promise<WebSightUser[]> {
   return s.users;
 }
 export async function getDraftById(draftId: string): Promise<KinDraft | null> {
-  const store = await readStore();
+  const store = await readLiveStore();
   return store.drafts.find(d => d.id === draftId && !d.deletedAt) ?? null;
 }
 export async function saveDraftBody(questionId: string, body: string, savedBy?: string): Promise<KinDraft | null> {

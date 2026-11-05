@@ -98,6 +98,8 @@ export interface FileStoreData {
   knowledge: KnowledgeEntry[];
   questions: KinQuestion[];
   drafts: KinDraft[];
+  reviewPeriods?: { source: "네이버 지식iN"; questionDate: string; answerDate: string }[];
+  kinDetection?: { lastRunAt: string };
   assignees: AssignmentScope[];
   users: WebSightUser[];
   settings: AppSettings;

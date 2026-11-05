@@ -132,6 +132,7 @@ export async function listRecentRanks(limit = 50) {
      FROM websight.rank_snapshots s
      JOIN websight.keywords k ON k.id = s.keyword_id
      JOIN websight.channels c ON c.id = s.channel_id
+     WHERE s.expires_at IS NULL OR s.expires_at >= now()
      ORDER BY s.collected_at DESC
      LIMIT $1`,
     [limit],
