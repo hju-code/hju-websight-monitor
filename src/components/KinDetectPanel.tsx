@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function KinDetectPanel({ latestQuestionId, answerBase = "/admin/kin" }: { latestQuestionId?: string; answerBase?: string }) {
+/** `compact` shows only the run button, for the review page summary bar. */
+export function KinDetectPanel({ latestQuestionId, answerBase = "/admin/kin", compact = false }: { latestQuestionId?: string; answerBase?: string; compact?: boolean }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,6 +32,17 @@ export function KinDetectPanel({ latestQuestionId, answerBase = "/admin/kin" }: 
     } finally {
       setBusy(false);
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="detect-compact">
+        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void detect()}>
+          {busy ? "감지 중…" : "지금 감지"}
+        </button>
+        {msg ? <span className="muted" role="status">{msg}</span> : null}
+      </div>
+    );
   }
 
   return (
