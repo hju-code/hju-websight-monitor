@@ -3,6 +3,7 @@ import { requireRole } from "../../../auth/session";
 import { canAccessQuestion } from "../../../auth/scope";
 import { redirect, notFound } from "next/navigation";
 import { KinReviewSplit } from "../../../components/KinReviewSplit";
+import { PageHeader } from "../../../components/PageHeader";
 import {
   getQuestion,
   listAssignees,
@@ -30,10 +31,7 @@ export default async function ReviewDetailPage({ params }: Props) {
 
   return (
     <>
-      <p className="page-lead">
-        혜전대학교 지식iN 초안 검토 (담당자). 승인 저장 또는 네이버에서 직접
-        붙여넣기. <strong>자동 게시 금지.</strong>
-      </p>
+      <PageHeader eyebrow="지식iN 검토" title="답변 작성">질문을 확인하고 답변을 작성·저장한 뒤 네이버에서 직접 붙여넣어 게시합니다. 자동 게시는 하지 않습니다.</PageHeader>
       <KinReviewSplit question={question} departments={departments} />
     </>
   );

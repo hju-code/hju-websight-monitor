@@ -33,5 +33,5 @@ export function SessionStatus({ initialExpiry }: { initialExpiry: string }) {
     } catch (err) { setError(err instanceof Error ? err.message : "시간을 연장하지 못했습니다."); } finally { setBusy(false); }
   }
   const seconds = now === null ? null : Math.max(0, Math.ceil((Date.parse(expiry) - now) / 1000));
-  return <span className="session-status"><span>남은 시간 {seconds === null ? "--:--" : `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`}</span><button type="button" className="nav-button" onClick={() => void refresh()} disabled={busy}>시간 연장</button>{error && <span role="status">{error}</span>}</span>;
+  return <span className={`session-status${seconds !== null && seconds <= 300 ? " is-expiring" : ""}`}><span className="session-time" aria-label="로그인 남은 시간">⏱ {seconds === null ? "--:--" : `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`}</span><button type="button" className="session-extend" onClick={() => void refresh()} disabled={busy}>연장</button>{error && <span role="status">{error}</span>}</span>;
 }

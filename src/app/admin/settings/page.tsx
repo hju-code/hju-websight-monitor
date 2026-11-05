@@ -6,6 +6,7 @@ import {
   SettingsTosForm,
 } from "../../../components/SettingsPlatformForm";
 import { getSettings } from "../../../db/store";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
-      <p className="page-lead">
-        <strong>전체 설정 관리</strong> — 플랫폼 체크·ToS·TTL·인증. 체크된
-        플랫폼만 혜전대학교 노출 조회/주기 수집 대상입니다. 답글 자동 게시 없음.
-      </p>
+      <PageHeader eyebrow="관리" title="전체 설정">수집할 검색 플랫폼과 보존 기간을 정합니다. 체크한 플랫폼만 정기 수집 대상이며, 답글 자동 게시는 하지 않습니다.</PageHeader>
 
       <section className="panel">
         <h2>소셜 · 검색 플랫폼</h2>

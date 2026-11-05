@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { KnowledgeForm } from "../../../components/KnowledgeForm";
 import { listKnowledge } from "../../../db/store";
 import { KnowledgeStatusButton } from "../../../components/KnowledgeStatusButton";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,7 @@ export default async function AdminKnowledgePage() {
 
   return (
     <>
-      <p className="page-lead">
-        입시요강 PDF를 등록하면 내용을 추출해 답변 작성에 사용할 자료로 저장합니다. 답변을 게시하기 전에는 모집 연도와 내용을 확인해 주세요.
-      </p>
+      <PageHeader eyebrow="관리" title="학과·입시 정보">입시요강 PDF를 등록하면 내용을 추출해 답변 작성 자료로 저장합니다. 답변을 게시하기 전에 모집 연도와 내용을 확인해 주세요.</PageHeader>
 
       <section className="panel">
         <h2>자료 등록</h2>

@@ -2,6 +2,7 @@ import { requireRole } from "../../../auth/session";
 import { redirect } from "next/navigation";
 import { KeywordForm } from "../../../components/KeywordForm";
 import { listAssignees, listKeywordsFromStore } from "../../../db/store";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,7 @@ export default async function AdminKeywordsPage() {
 
   return (
     <>
-      <p className="page-lead">
-        <strong>검색 키워드 관리</strong> — SERP·지식iN 감지에 쓰는 키워드를
-        추가·수정·비활성화합니다. 키워드(또는 사이트)별로 답변 담당자를 지정합니다.
-      </p>
+      <PageHeader eyebrow="관리" title="검색 키워드">검색 순위 수집과 지식iN 감지에 쓰는 키워드를 추가·수정·비활성화합니다.</PageHeader>
 
       <section className="panel">
         <h2>키워드</h2>
